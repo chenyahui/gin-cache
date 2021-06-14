@@ -1,8 +1,6 @@
 # gin-cache
 A high performance gin middleare to cache http api. Compared to gin-contrib/cache, it has more than 45% performance improvement.
 
-[TOC]
-
 # How To Use
 
 ## Install
@@ -51,4 +49,4 @@ func main() {
 wrk -c 300 -d 30s -t 10 http://127.0.0.1:8080/hello
 ```
 
-[QPS](https://www.cyhone.com/img/gin-cache/qps.png)
+![QPS](https://www.cyhone.com/img/gin-cache/qps.png)
