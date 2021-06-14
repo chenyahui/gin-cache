@@ -1,5 +1,5 @@
 # gin-cache
-A high performance gin middleare to cache http response. Compared to gin-contrib/cache, it has more than 45% performance improvement.
+A high performance gin middleware to cache http response. Compared to gin-contrib/cache, it has more than 45% performance improvement.
 
 # How To Use
 
@@ -46,7 +46,7 @@ func main() {
 
 # Benchmark
 ```
-wrk -c 300 -d 30s -t 10 http://127.0.0.1:8080/hello
+wrk -c 500 -d 1m -t 5 http://127.0.0.1:8080/hello
 ```
 
 ![QPS](https://www.cyhone.com/img/gin-cache/qps.png)
