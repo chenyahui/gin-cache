@@ -1,5 +1,5 @@
 # gin-cache
-A high performance gin middleare to cache http api. Compared to gin-contrib/cache, it has more than 45% performance improvement.
+A high performance gin middleare to cache http response. Compared to gin-contrib/cache, it has more than 45% performance improvement.
 
 # How To Use
 
