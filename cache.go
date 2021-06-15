@@ -21,8 +21,8 @@ type Options struct {
 	// DisableSingleFlight means whether use singleflight to avoid Hotspot Invalid when cache miss
 	DisableSingleFlight bool
 
-	// SingleflightTimeout this option only be effective when DisableSingleFlight is false
-	SingleflightTimeout time.Duration
+	// SingleflightForgetTime this option only be effective when DisableSingleFlight is false
+	SingleflightForgetTime time.Duration
 
 	// Logger
 	Logger Logger
@@ -40,7 +40,7 @@ func Cache(handler Handler, options Options) gin.HandlerFunc {
 		panic("CacheStore can not be nil")
 	}
 
-	cacheManager := newCacheManager()
+	cacheHelper := newCacheHelper(options)
 
 	return func(c *gin.Context) {
 		cacheKey, needCache := handler(c)
@@ -49,58 +49,63 @@ func Cache(handler Handler, options Options) gin.HandlerFunc {
 			return
 		}
 
-		respCache := cacheManager.getResponseCache()
-		respCache.reset()
+		// read cache first
+		{
+			respCache := cacheHelper.getResponseCache()
+			defer cacheHelper.putResponseCache(respCache)
 
-		err := options.CacheStore.Get(cacheKey, &respCache)
-
-		defer cacheManager.putResponseCache(respCache)
-
-		if err == nil {
-			c.Writer.WriteHeader(respCache.Status)
-			for k, vals := range respCache.Header {
-				for _, v := range vals {
-					c.Writer.Header().Set(k, v)
-				}
+			err := options.CacheStore.Get(cacheKey, &respCache)
+			if err == nil {
+				cacheHelper.respondWithCache(c, respCache)
+				return
 			}
 
-			if _, err := c.Writer.Write(respCache.Data); err != nil {
+			if err != persist.ErrCacheMiss {
 				if options.Logger != nil {
-					options.Logger.Printf("write response error: %v", err)
+					options.Logger.Printf("get cache: %v", err)
 				}
 			}
-
-			// abort handler chain and return directly
-			c.Abort()
-			return
 		}
 
-		if err != persist.ErrCacheMiss {
-			if options.Logger != nil {
-				options.Logger.Printf("get cache: %v", err)
-			}
-		}
+		// set context writer to cacheWriter in order to record the response
+		cacheWriter := &responseCacheWriter{}
+		cacheWriter.reset(c.Writer)
+		c.Writer = cacheWriter
+
+		respCache := &responseCache{}
 
 		if options.DisableSingleFlight {
-			cacheManager.responseWithCache(c, cacheKey, options)
+			c.Next()
+
+			respCache.fill(cacheWriter)
 		} else {
 			// use singleflight to avoid Hotspot Invalid
-			cacheManager.sfGroup.Do(cacheKey, func() (interface{}, error) {
-				if options.SingleflightTimeout > 0 {
+			rawCacheWriter, _, shared := cacheHelper.sfGroup.Do(cacheKey, func() (interface{}, error) {
+				if options.SingleflightForgetTime > 0 {
 					go func() {
-						time.Sleep(options.SingleflightTimeout)
-						cacheManager.sfGroup.Forget(cacheKey)
+						time.Sleep(options.SingleflightForgetTime)
+						cacheHelper.sfGroup.Forget(cacheKey)
 					}()
 				}
 
-				if err := cacheManager.responseWithCache(c, cacheKey, options); err != nil {
-					return nil, err
-				}
+				c.Next()
 
-				return nil, nil
+				return cacheWriter, nil
 			})
+
+			cacheWriter = rawCacheWriter.(*responseCacheWriter)
+			respCache.fill(cacheWriter)
+
+			if shared {
+				cacheHelper.respondWithCache(c, respCache)
+			}
 		}
 
+		if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
+			if options.Logger != nil {
+				options.Logger.Printf("set cache error: %v", err)
+			}
+		}
 	}
 }
 
@@ -135,7 +140,7 @@ func (c *responseCache) reset() {
 	c.Header = make(http.Header)
 }
 
-func (c *responseCache) fill(cacheWriter *cacheWriter) {
+func (c *responseCache) fill(cacheWriter *responseCacheWriter) {
 	c.Status = cacheWriter.Status()
 	c.Data = cacheWriter.body.Bytes()
 	c.Header = make(http.Header, len(cacheWriter.Header()))
@@ -145,33 +150,25 @@ func (c *responseCache) fill(cacheWriter *cacheWriter) {
 	}
 }
 
-// cacheWriter
-type cacheWriter struct {
+// responseCacheWriter
+type responseCacheWriter struct {
 	gin.ResponseWriter
 	body bytes.Buffer
 }
 
-func (w *cacheWriter) Write(b []byte) (int, error) {
+func (w *responseCacheWriter) Write(b []byte) (int, error) {
 	w.body.Write(b)
 	return w.ResponseWriter.Write(b)
 }
 
-func (w *cacheWriter) WriteString(s string) (int, error) {
+func (w *responseCacheWriter) WriteString(s string) (int, error) {
 	w.body.WriteString(s)
 	return w.ResponseWriter.WriteString(s)
 }
 
-func (w *cacheWriter) reset(writer gin.ResponseWriter) {
+func (w *responseCacheWriter) reset(writer gin.ResponseWriter) {
 	w.body.Reset()
 	w.ResponseWriter = writer
-}
-
-func newCacheWriterPool() *sync.Pool {
-	return &sync.Pool{
-		New: func() interface{} {
-			return &cacheWriter{}
-		},
-	}
 }
 
 func newResponseCachePool() *sync.Pool {
@@ -184,62 +181,48 @@ func newResponseCachePool() *sync.Pool {
 	}
 }
 
-type cacheManager struct {
+type cacheHelper struct {
 	sfGroup           singleflight.Group
 	responseCachePool *sync.Pool
-	cacheWriterPool   *sync.Pool
+	options           Options
 }
 
-func newCacheManager() *cacheManager {
-	return &cacheManager{
+func newCacheHelper(options Options) *cacheHelper {
+	return &cacheHelper{
 		sfGroup:           singleflight.Group{},
 		responseCachePool: newResponseCachePool(),
-		cacheWriterPool:   newCacheWriterPool(),
+		options:           options,
 	}
 }
 
-func (m *cacheManager) getResponseCache() *responseCache {
-	return m.responseCachePool.Get().(*responseCache)
+func (m *cacheHelper) getResponseCache() *responseCache {
+	respCache := m.responseCachePool.Get().(*responseCache)
+	respCache.reset()
+
+	return respCache
 }
 
-func (m *cacheManager) putResponseCache(c *responseCache) {
+func (m *cacheHelper) putResponseCache(c *responseCache) {
 	m.responseCachePool.Put(c)
 }
 
-func (m *cacheManager) getCacheWriter() *cacheWriter {
-	return m.cacheWriterPool.Get().(*cacheWriter)
-}
-
-func (m *cacheManager) putCacheWriter(w *cacheWriter) {
-	m.responseCachePool.Put(w)
-}
-
-func (m *cacheManager) responseWithCache(
+func (m *cacheHelper) respondWithCache(
 	c *gin.Context,
-	cacheKey string,
-	options Options,
-) error {
-	cacheWriter := m.cacheWriterPool.Get().(*cacheWriter)
-	cacheWriter.reset(c.Writer)
-
-	// give back object to pool
-	defer m.cacheWriterPool.Put(cacheWriter)
-
-	c.Writer = cacheWriter
-	c.Next()
-
-	// only cache 2xx response
-	if cacheWriter.Status() < 300 {
-		cacheItem := &responseCache{}
-		cacheItem.fill(cacheWriter)
-
-		if err := options.CacheStore.Set(cacheKey, cacheItem, options.CacheDuration); err != nil {
-			if options.Logger != nil {
-				options.Logger.Printf("set cache error: %v", err)
-			}
-			return err
+	respCache *responseCache,
+) {
+	c.Writer.WriteHeader(respCache.Status)
+	for k, vals := range respCache.Header {
+		for _, v := range vals {
+			c.Writer.Header().Set(k, v)
 		}
 	}
 
-	return nil
+	if _, err := c.Writer.Write(respCache.Data); err != nil {
+		if m.options.Logger != nil {
+			m.options.Logger.Printf("write response error: %v", err)
+		}
+	}
+
+	// abort handler chain and return directly
+	c.Abort()
 }
