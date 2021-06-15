@@ -32,10 +32,10 @@ type Logger interface {
 	Printf(format string, args ...interface{})
 }
 
-type Handler func(c *gin.Context) (string, bool)
+type KeyGenerator func(c *gin.Context) (string, bool)
 
 // Cache user must pass getCacheKey to describe the way to generate cache key
-func Cache(handler Handler, options Options) gin.HandlerFunc {
+func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
 	if options.CacheStore == nil {
 		panic("CacheStore can not be nil")
 	}
@@ -43,7 +43,7 @@ func Cache(handler Handler, options Options) gin.HandlerFunc {
 	cacheHelper := newCacheHelper(options)
 
 	return func(c *gin.Context) {
-		cacheKey, needCache := handler(c)
+		cacheKey, needCache := keyGenerator(c)
 		if !needCache {
 			c.Next()
 			return
@@ -79,8 +79,9 @@ func Cache(handler Handler, options Options) gin.HandlerFunc {
 
 			respCache.fill(cacheWriter)
 		} else {
+			handled := false
 			// use singleflight to avoid Hotspot Invalid
-			rawCacheWriter, _, shared := cacheHelper.sfGroup.Do(cacheKey, func() (interface{}, error) {
+			rawCacheWriter, _, _ := cacheHelper.sfGroup.Do(cacheKey, func() (interface{}, error) {
 				if options.SingleflightForgetTime > 0 {
 					go func() {
 						time.Sleep(options.SingleflightForgetTime)
@@ -90,13 +91,14 @@ func Cache(handler Handler, options Options) gin.HandlerFunc {
 
 				c.Next()
 
+				handled = true
 				return cacheWriter, nil
 			})
 
 			cacheWriter = rawCacheWriter.(*responseCacheWriter)
 			respCache.fill(cacheWriter)
 
-			if shared {
+			if !handled {
 				cacheHelper.respondWithCache(c, respCache)
 			}
 		}
