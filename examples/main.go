@@ -18,7 +18,6 @@ func main() {
 			DisableSingleFlight: true,
 		}),
 		func(c *gin.Context) {
-			time.Sleep(200 * time.Millisecond)
 			c.String(200, "hello world")
 		},
 	)

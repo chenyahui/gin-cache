@@ -2,6 +2,7 @@ package cache
 
 import (
 	"bytes"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"sync"
 	"time"
@@ -24,12 +25,7 @@ type Options struct {
 	// SingleflightForgetTime this option only be effective when DisableSingleFlight is false
 	SingleflightForgetTime time.Duration
 
-	// Logger
-	Logger Logger
-}
-
-type Logger interface {
-	Printf(format string, args ...interface{})
+	Logger *logrus.Logger
 }
 
 type KeyGenerator func(c *gin.Context) (string, bool)
@@ -56,13 +52,20 @@ func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
 
 			err := options.CacheStore.Get(cacheKey, &respCache)
 			if err == nil {
+				if options.Logger != nil {
+					options.Logger.Debugf("get cache success, cache key: %s", cacheKey)
+				}
 				cacheHelper.respondWithCache(c, respCache)
 				return
 			}
 
 			if err != persist.ErrCacheMiss {
 				if options.Logger != nil {
-					options.Logger.Printf("get cache: %v", err)
+					options.Logger.Errorf("get cache error: %s, cache key: %s", err, cacheKey)
+				}
+			} else {
+				if options.Logger != nil {
+					options.Logger.Debugf("get cache miss, cache key: %s", cacheKey)
 				}
 			}
 		}
@@ -105,7 +108,7 @@ func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
 
 		if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
 			if options.Logger != nil {
-				options.Logger.Printf("set cache error: %v", err)
+				options.Logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
 			}
 		}
 	}
@@ -220,9 +223,7 @@ func (m *cacheHelper) respondWithCache(
 	}
 
 	if _, err := c.Writer.Write(respCache.Data); err != nil {
-		if m.options.Logger != nil {
-			m.options.Logger.Printf("write response error: %v", err)
-		}
+		logrus.Errorf("write response error: %s", err)
 	}
 
 	// abort handler chain and return directly

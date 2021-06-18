@@ -11,9 +11,15 @@ type RedisStore struct {
 	RedisClient *redis.Client
 }
 
+func NewRedisStore(redisClient *redis.Client) *RedisStore {
+	return &RedisStore{
+		RedisClient: redisClient,
+	}
+}
+
 func (store *RedisStore) Set(key string, value interface{}, expire time.Duration) error {
-	payload, err:= json.Marshal(value)
-	if err != nil{
+	payload, err := json.Marshal(value)
+	if err != nil {
 		return err
 	}
 
@@ -29,7 +35,12 @@ func (store *RedisStore) Delete(key string) error {
 func (store *RedisStore) Get(key string, value interface{}) error {
 	ctx := context.TODO()
 	payload, err := store.RedisClient.Get(ctx, key).Bytes()
-	if err != nil{
+
+	if err == redis.Nil {
+		return ErrCacheMiss
+	}
+
+	if err != nil {
 		return err
 	}
 
