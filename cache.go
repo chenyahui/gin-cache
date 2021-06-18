@@ -2,10 +2,11 @@ package cache
 
 import (
 	"bytes"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/chenyahui/gin-cache/persist"
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,7 @@ type Options struct {
 	// SingleflightForgetTime this option only be effective when DisableSingleFlight is false
 	SingleflightForgetTime time.Duration
 
+	// Logger
 	Logger *logrus.Logger
 }
 

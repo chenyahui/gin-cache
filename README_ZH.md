@@ -1,29 +1,28 @@
-# gin-cache
+# gin-cache 
 [![Release](https://img.shields.io/github/release/chenyahui/gin-cache.svg?style=flat-square)](https://github.com/chenyahui/gin-cache/releases)
 [![doc](https://img.shields.io/badge/go.dev-doc-007d9c?style=flat-square&logo=read-the-docs)](https://pkg.go.dev/github.com/chenyahui/gin-cache)
-English | [🇨🇳中文](README_ZH.md)
 
-A high performance gin middleware to cache http response. Compared to gin-contrib/cache. It has a huge performance improvement.
+(English)[README_ZH.md] | 🇨🇳中文
 
+一个用于缓存http接口内容的gin高性能中间件。相比于官方的gin-contrib/cache，gin-cache有巨大的性能提升。
 
-# Feature
+# 特性
+* 相比于gin-contrib/cache，性能提升巨大。
+* 同时支持本机内存和redis作为缓存后端。
+* 支持用户根据请求来指定cache策略。
+* 使用sync.Pool缓存高频对象。
+* 使用singleflight解决了缓存击穿问题。
 
-* Has a huge performance improvement compared to gin-contrib/cache.
-* Support cache response in local memory and redis.
-* Offer a way to custom the cache key of request.
-* Use sync.Pool to cache high frequency objects.
-* Use singleflight to avoid hotspot invalid.
+# 用法
 
-# How To Use
+## 安装
 
-## Install
 ```
 go get github.com/chenyahui/gin-cache
 ```
 
-## Example
-
-### Cache In Local Memory
+## 例子
+## 使用本地缓存
 
 ```go
 package main
@@ -56,7 +55,7 @@ func main() {
 }
 ```
 
-### Cache In Redis
+### 使用redis作为缓存
 
 ```go
 package main
@@ -93,10 +92,7 @@ func main() {
 }
 ```
 
-
-
-# Benchmark
-
+# 压测
 ```
 wrk -c 500 -d 1m -t 5 http://127.0.0.1:8080/hello
 ```
