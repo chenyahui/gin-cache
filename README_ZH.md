@@ -2,7 +2,7 @@
 [![Release](https://img.shields.io/github/release/chenyahui/gin-cache.svg?style=flat-square)](https://github.com/chenyahui/gin-cache/releases)
 [![doc](https://img.shields.io/badge/go.dev-doc-007d9c?style=flat-square&logo=read-the-docs)](https://pkg.go.dev/github.com/chenyahui/gin-cache)
 
-(English)[README_ZH.md] | 🇨🇳中文
+[English](README_ZH.md) | 🇨🇳中文
 
 一个用于缓存http接口内容的gin高性能中间件。相比于官方的gin-contrib/cache，gin-cache有巨大的性能提升。
 
