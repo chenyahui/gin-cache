@@ -72,7 +72,7 @@ func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
 			}
 		}
 
-		// set context writer to cacheWriter in order to record the response
+		// use responseCacheWriter in order to record the response
 		cacheWriter := &responseCacheWriter{}
 		cacheWriter.reset(c.Writer)
 		c.Writer = cacheWriter
@@ -83,10 +83,16 @@ func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
 			c.Next()
 
 			respCache.fill(cacheWriter)
+
+			if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
+				if options.Logger != nil {
+					options.Logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
+				}
+			}
 		} else {
 			handled := false
 			// use singleflight to avoid Hotspot Invalid
-			rawCacheWriter, _, _ := cacheHelper.sfGroup.Do(cacheKey, func() (interface{}, error) {
+			rawRespCache, _, _ := cacheHelper.sfGroup.Do(cacheKey, func() (interface{}, error) {
 				if options.SingleflightForgetTime > 0 {
 					go func() {
 						time.Sleep(options.SingleflightForgetTime)
@@ -97,20 +103,19 @@ func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
 				c.Next()
 
 				handled = true
-				return cacheWriter, nil
+				respCache.fill(cacheWriter)
+
+				if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
+					if options.Logger != nil {
+						options.Logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
+					}
+				}
+
+				return respCache, nil
 			})
 
-			cacheWriter = rawCacheWriter.(*responseCacheWriter)
-			respCache.fill(cacheWriter)
-
 			if !handled {
-				cacheHelper.respondWithCache(c, respCache)
-			}
-		}
-
-		if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
-			if options.Logger != nil {
-				options.Logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
+				cacheHelper.respondWithCache(c, rawRespCache.(*responseCache))
 			}
 		}
 	}
