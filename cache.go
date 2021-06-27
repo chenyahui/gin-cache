@@ -77,11 +77,10 @@ func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
 		cacheWriter.reset(c.Writer)
 		c.Writer = cacheWriter
 
-		respCache := &responseCache{}
-
 		if options.DisableSingleFlight {
 			c.Next()
 
+			respCache := cacheHelper.getResponseCache()
 			respCache.fill(cacheWriter)
 
 			if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
@@ -103,6 +102,8 @@ func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
 				c.Next()
 
 				handled = true
+
+				respCache := cacheHelper.getResponseCache()
 				respCache.fill(cacheWriter)
 
 				if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
