@@ -80,12 +80,15 @@ func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
 		if options.DisableSingleFlight {
 			c.Next()
 
-			respCache := cacheHelper.getResponseCache()
-			respCache.fill(cacheWriter)
+			// only cache 2xx response
+			if cacheWriter.Status() < 300 {
+				respCache := cacheHelper.getResponseCache()
+				respCache.fill(cacheWriter)
 
-			if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
-				if options.Logger != nil {
-					options.Logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
+				if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
+					if options.Logger != nil {
+						options.Logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
+					}
 				}
 			}
 		} else {
@@ -106,9 +109,12 @@ func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
 				respCache := cacheHelper.getResponseCache()
 				respCache.fill(cacheWriter)
 
-				if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
-					if options.Logger != nil {
-						options.Logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
+				// only cache 2xx response
+				if cacheWriter.Status() < 300 {
+					if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
+						if options.Logger != nil {
+							options.Logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
+						}
 					}
 				}
 
