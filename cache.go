@@ -2,6 +2,7 @@ package cache
 
 import (
 	"bytes"
+	"encoding/gob"
 	"net/http"
 	"sync"
 	"time"
@@ -146,6 +147,10 @@ func CacheByPath(options Options) gin.HandlerFunc {
 		},
 		options,
 	)
+}
+
+func init() {
+	gob.Register(&responseCache{})
 }
 
 type responseCache struct {
