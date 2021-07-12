@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/chenyahui/gin-cache/persist"
@@ -40,7 +39,6 @@ func Cache(
 	}
 
 	sfGroup := singleflight.Group{}
-	respCachePool := newResponseCachePool()
 
 	return func(c *gin.Context) {
 		shouldCache, cacheStrategy := cfg.getCacheStrategyByRequest(c)
@@ -67,8 +65,7 @@ func Cache(
 
 		err := cacheStore.Get(cacheKey, &respCache)
 		if err == nil {
-			replyWithCache(c, respCache)
-			respCachePool.Put(respCache)
+			replyWithCache(c, cfg, respCache)
 			return
 		}
 
@@ -99,7 +96,7 @@ func Cache(
 		})
 
 		if !inFlight {
-			replyWithCache(c, rawRespCache.(*responseCache))
+			replyWithCache(c, cfg, rawRespCache.(*responseCache))
 		}
 	}
 }
@@ -135,19 +132,6 @@ type responseCache struct {
 	Data   []byte
 }
 
-func newResponseCache() *responseCache {
-	return &responseCache{
-		Status: 0,
-		Header: make(http.Header),
-	}
-}
-
-func (c *responseCache) reset() {
-	c.Data = c.Data[0:0]
-	c.Header = make(http.Header)
-	c.Status = 0
-}
-
 func (c *responseCache) fillWithCacheWriter(cacheWriter *responseCacheWriter) {
 	c.Status = cacheWriter.Status()
 	c.Data = cacheWriter.body.Bytes()
@@ -175,34 +159,11 @@ func (w *responseCacheWriter) reset(writer gin.ResponseWriter) {
 	w.ResponseWriter = writer
 }
 
-type responseCachePool struct {
-	pool *sync.Pool
-}
-
-func newResponseCachePool() *responseCachePool {
-	return &responseCachePool{
-		pool: &sync.Pool{
-			New: func() interface{} {
-				return &responseCache{
-					Header: make(http.Header),
-				}
-			},
-		},
-	}
-}
-
-func (p *responseCachePool) Get() *responseCache {
-	respCache := p.pool.Get().(*responseCache)
-	respCache.reset()
-
-	return respCache
-}
-
-func (p *responseCachePool) Put(c *responseCache) {
-	p.pool.Put(c)
-}
-
-func replyWithCache(c *gin.Context, respCache *responseCache) {
+func replyWithCache(
+	c *gin.Context,
+	cfg *Config,
+	respCache *responseCache,
+) {
 	c.Writer.WriteHeader(respCache.Status)
 	for key, values := range respCache.Header {
 		for _, val := range values {
@@ -211,7 +172,7 @@ func replyWithCache(c *gin.Context, respCache *responseCache) {
 	}
 
 	if _, err := c.Writer.Write(respCache.Data); err != nil {
-		//logrus.Errorf("write response error: %s", err)
+		cfg.logger.Errorf("write response error: %s", err)
 	}
 
 	// abort handler chain and return directly
