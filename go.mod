@@ -3,6 +3,7 @@ module github.com/chenyahui/gin-cache
 go 1.13
 
 require (
+	github.com/ReneKroon/ttlcache/v2 v2.7.0 // indirect
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-playground/assert/v2 v2.0.1
 	github.com/go-redis/redis/v8 v8.10.0
