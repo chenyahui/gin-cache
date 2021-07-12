@@ -1,35 +1,37 @@
 package persist
 
 import (
+	"errors"
+	"github.com/ReneKroon/ttlcache/v2"
 	"reflect"
 	"time"
-
-	"github.com/patrickmn/go-cache"
 )
 
+// MemoryStore local memory cache store
 type MemoryStore struct {
-	Cache *cache.Cache
+	Cache *ttlcache.Cache
 }
 
+// NewMemoryStore allocate a local memory store with default expiration
 func NewMemoryStore(defaultExpiration time.Duration) *MemoryStore {
+	cacheStore := ttlcache.NewCache()
+	_ = cacheStore.SetTTL(defaultExpiration)
 	return &MemoryStore{
-		Cache: cache.New(defaultExpiration, time.Minute),
+		Cache: cacheStore,
 	}
 }
 
 func (c *MemoryStore) Set(key string, value interface{}, expire time.Duration) error {
-	c.Cache.Set(key, value, expire)
-	return nil
+	return c.Cache.SetWithTTL(key, value, expire)
 }
 
 func (c *MemoryStore) Delete(key string) error {
-	c.Cache.Delete(key)
-	return nil
+	return c.Cache.Remove(key)
 }
 
 func (c *MemoryStore) Get(key string, value interface{}) error {
-	val, found := c.Cache.Get(key)
-	if !found {
+	val, err := c.Cache.Get(key)
+	if errors.Is(err, ttlcache.ErrNotFound) {
 		return ErrCacheMiss
 	}
 

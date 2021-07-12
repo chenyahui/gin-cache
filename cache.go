@@ -7,146 +7,122 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/chenyahui/gin-cache/persist"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/singleflight"
 )
 
-type Options struct {
-	// CacheStore the cache backend to store response
+// Strategy the cache strategy
+type Strategy struct {
+	CacheKey string
+
+	// CacheStore if nil, use default cache store instead
 	CacheStore persist.CacheStore
 
 	// CacheDuration
 	CacheDuration time.Duration
-
-	// DisableSingleFlight means whether use singleflight to avoid Hotspot Invalid when cache miss
-	DisableSingleFlight bool
-
-	// SingleflightForgetTime this option only be effective when DisableSingleFlight is false
-	SingleflightForgetTime time.Duration
-
-	// Logger
-	Logger *logrus.Logger
 }
 
-type KeyGenerator func(c *gin.Context) (string, bool)
+type GetCacheStrategyByRequest func(c *gin.Context) (bool, Strategy)
 
 // Cache user must pass getCacheKey to describe the way to generate cache key
-func Cache(keyGenerator KeyGenerator, options Options) gin.HandlerFunc {
-	if options.CacheStore == nil {
-		panic("CacheStore can not be nil")
+func Cache(
+	defaultCacheStore persist.CacheStore,
+	defaultExpire time.Duration,
+	opts ...Option,
+) gin.HandlerFunc {
+	cfg := &Config{
+		logger: Discard{},
 	}
 
-	cacheHelper := newCacheHelper(options)
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	sfGroup := singleflight.Group{}
+	respCachePool := newResponseCachePool()
 
 	return func(c *gin.Context) {
-		cacheKey, needCache := keyGenerator(c)
-		if !needCache {
+		shouldCache, cacheStrategy := cfg.getCacheStrategyByRequest(c)
+		if !shouldCache {
 			c.Next()
 			return
 		}
 
+		cacheKey := cacheStrategy.CacheKey
+
+		// merge cfg
+		cacheStore := defaultCacheStore
+		if cacheStrategy.CacheStore != nil {
+			cacheStore = cacheStrategy.CacheStore
+		}
+
+		cacheDuration := defaultExpire
+		if cacheStrategy.CacheDuration > 0 {
+			cacheDuration = cacheStrategy.CacheDuration
+		}
+
 		// read cache first
-		{
-			respCache := cacheHelper.getResponseCache()
-			defer cacheHelper.putResponseCache(respCache)
+		respCache := &responseCache{}
 
-			err := options.CacheStore.Get(cacheKey, &respCache)
-			if err == nil {
-				if options.Logger != nil {
-					options.Logger.Debugf("get cache success, cache key: %s", cacheKey)
-				}
-				cacheHelper.respondWithCache(c, respCache)
-				return
-			}
+		err := cacheStore.Get(cacheKey, &respCache)
+		if err == nil {
+			replyWithCache(c, respCache)
+			respCachePool.Put(respCache)
+			return
+		}
 
-			if err != persist.ErrCacheMiss {
-				if options.Logger != nil {
-					options.Logger.Errorf("get cache error: %s, cache key: %s", err, cacheKey)
-				}
-			} else {
-				if options.Logger != nil {
-					options.Logger.Debugf("get cache miss, cache key: %s", cacheKey)
-				}
-			}
+		if err != persist.ErrCacheMiss {
+			cfg.logger.Errorf("get cache error: %s, cache key: %s", err, cacheKey)
 		}
 
 		// use responseCacheWriter in order to record the response
-		cacheWriter := &responseCacheWriter{}
-		cacheWriter.reset(c.Writer)
+		cacheWriter := &responseCacheWriter{ResponseWriter: c.Writer}
 		c.Writer = cacheWriter
 
-		if options.DisableSingleFlight {
+		inFlight := false
+		rawRespCache, _, _ := sfGroup.Do(cacheKey, func() (interface{}, error) {
 			c.Next()
 
+			inFlight = true
+
+			respCache.fillWithCacheWriter(cacheWriter)
+
 			// only cache 2xx response
-			if cacheWriter.Status() < 300 {
-				respCache := cacheHelper.getResponseCache()
-				respCache.fill(cacheWriter)
-
-				if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
-					if options.Logger != nil {
-						options.Logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
-					}
+			if !c.IsAborted() && cacheWriter.Status() < 300 && cacheWriter.Status() >= 200 {
+				if err := cacheStore.Set(cacheKey, respCache, cacheDuration); err != nil {
+					cfg.logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
 				}
 			}
-		} else {
-			handled := false
-			// use singleflight to avoid Hotspot Invalid
-			rawRespCache, _, _ := cacheHelper.sfGroup.Do(cacheKey, func() (interface{}, error) {
-				if options.SingleflightForgetTime > 0 {
-					go func() {
-						time.Sleep(options.SingleflightForgetTime)
-						cacheHelper.sfGroup.Forget(cacheKey)
-					}()
-				}
 
-				c.Next()
+			return respCache, nil
+		})
 
-				handled = true
-
-				respCache := cacheHelper.getResponseCache()
-				respCache.fill(cacheWriter)
-
-				// only cache 2xx response
-				if cacheWriter.Status() < 300 {
-					if err := options.CacheStore.Set(cacheKey, respCache, options.CacheDuration); err != nil {
-						if options.Logger != nil {
-							options.Logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
-						}
-					}
-				}
-
-				return respCache, nil
-			})
-
-			if !handled {
-				cacheHelper.respondWithCache(c, rawRespCache.(*responseCache))
-			}
+		if !inFlight {
+			replyWithCache(c, rawRespCache.(*responseCache))
 		}
 	}
 }
 
-// CacheByURI a shortcut function for caching response with uri
-func CacheByURI(options Options) gin.HandlerFunc {
-	return Cache(
-		func(c *gin.Context) (string, bool) {
-			return c.Request.RequestURI, true
-		},
-		options,
-	)
+// CacheByRequestURI a shortcut function for caching response with uri
+func CacheByRequestURI(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
+	opts = append(opts, WithCacheStrategyByRequest(func(c *gin.Context) (bool, Strategy) {
+		return true, Strategy{
+			CacheKey: c.Request.RequestURI,
+		}
+	}))
+	return Cache(defaultCacheStore, defaultExpire, opts...)
 }
 
-// CacheByPath a shortcut function for caching response with url path, discard the query params
-func CacheByPath(options Options) gin.HandlerFunc {
-	return Cache(
-		func(c *gin.Context) (string, bool) {
-			return c.Request.URL.Path, true
-		},
-		options,
-	)
+// CacheByRequestPath a shortcut function for caching response with url path, discard the query params
+func CacheByRequestPath(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
+	opts = append(opts, WithCacheStrategyByRequest(func(c *gin.Context) (bool, Strategy) {
+		return true, Strategy{
+			CacheKey: c.Request.URL.Path,
+		}
+	}))
+
+	return Cache(defaultCacheStore, defaultExpire, opts...)
 }
 
 func init() {
@@ -159,19 +135,23 @@ type responseCache struct {
 	Data   []byte
 }
 
+func newResponseCache() *responseCache {
+	return &responseCache{
+		Status: 0,
+		Header: make(http.Header),
+	}
+}
+
 func (c *responseCache) reset() {
 	c.Data = c.Data[0:0]
 	c.Header = make(http.Header)
+	c.Status = 0
 }
 
-func (c *responseCache) fill(cacheWriter *responseCacheWriter) {
+func (c *responseCache) fillWithCacheWriter(cacheWriter *responseCacheWriter) {
 	c.Status = cacheWriter.Status()
 	c.Data = cacheWriter.body.Bytes()
-	c.Header = make(http.Header, len(cacheWriter.Header()))
-
-	for key, value := range cacheWriter.Header() {
-		c.Header[key] = value
-	}
+	c.Header = cacheWriter.Header().Clone()
 }
 
 // responseCacheWriter
@@ -195,54 +175,43 @@ func (w *responseCacheWriter) reset(writer gin.ResponseWriter) {
 	w.ResponseWriter = writer
 }
 
-func newResponseCachePool() *sync.Pool {
-	return &sync.Pool{
-		New: func() interface{} {
-			return &responseCache{
-				Header: make(http.Header),
-			}
+type responseCachePool struct {
+	pool *sync.Pool
+}
+
+func newResponseCachePool() *responseCachePool {
+	return &responseCachePool{
+		pool: &sync.Pool{
+			New: func() interface{} {
+				return &responseCache{
+					Header: make(http.Header),
+				}
+			},
 		},
 	}
 }
 
-type cacheHelper struct {
-	sfGroup           singleflight.Group
-	responseCachePool *sync.Pool
-	options           Options
-}
-
-func newCacheHelper(options Options) *cacheHelper {
-	return &cacheHelper{
-		sfGroup:           singleflight.Group{},
-		responseCachePool: newResponseCachePool(),
-		options:           options,
-	}
-}
-
-func (m *cacheHelper) getResponseCache() *responseCache {
-	respCache := m.responseCachePool.Get().(*responseCache)
+func (p *responseCachePool) Get() *responseCache {
+	respCache := p.pool.Get().(*responseCache)
 	respCache.reset()
 
 	return respCache
 }
 
-func (m *cacheHelper) putResponseCache(c *responseCache) {
-	m.responseCachePool.Put(c)
+func (p *responseCachePool) Put(c *responseCache) {
+	p.pool.Put(c)
 }
 
-func (m *cacheHelper) respondWithCache(
-	c *gin.Context,
-	respCache *responseCache,
-) {
+func replyWithCache(c *gin.Context, respCache *responseCache) {
 	c.Writer.WriteHeader(respCache.Status)
-	for k, vals := range respCache.Header {
-		for _, v := range vals {
-			c.Writer.Header().Set(k, v)
+	for key, values := range respCache.Header {
+		for _, val := range values {
+			c.Writer.Header().Add(key, val)
 		}
 	}
 
 	if _, err := c.Writer.Write(respCache.Data); err != nil {
-		logrus.Errorf("write response error: %s", err)
+		//logrus.Errorf("write response error: %s", err)
 	}
 
 	// abort handler chain and return directly

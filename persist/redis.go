@@ -2,8 +2,10 @@ package persist
 
 import (
 	"context"
-	"github.com/go-redis/redis/v8"
+	"errors"
 	"time"
+
+	"github.com/go-redis/redis/v8"
 )
 
 type RedisStore struct {
@@ -35,7 +37,7 @@ func (store *RedisStore) Get(key string, value interface{}) error {
 	ctx := context.TODO()
 	payload, err := store.RedisClient.Get(ctx, key).Bytes()
 
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		return ErrCacheMiss
 	}
 

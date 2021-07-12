@@ -18,10 +18,7 @@ func main() {
 	}))
 
 	app.GET("/hello",
-		cache.CacheByPath(cache.Options{
-			CacheDuration: 5 * time.Second,
-			CacheStore:    redisStore,
-		}),
+		cache.CacheByRequestURI(redisStore, 2*time.Second),
 		func(c *gin.Context) {
 			c.String(200, "hello world")
 		},
