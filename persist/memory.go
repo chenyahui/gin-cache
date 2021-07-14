@@ -16,6 +16,8 @@ type MemoryStore struct {
 func NewMemoryStore(defaultExpiration time.Duration) *MemoryStore {
 	cacheStore := ttlcache.NewCache()
 	_ = cacheStore.SetTTL(defaultExpiration)
+	cacheStore.SkipTTLExtensionOnHit(true)
+
 	return &MemoryStore{
 		Cache: cacheStore,
 	}
