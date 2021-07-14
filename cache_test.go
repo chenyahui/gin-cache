@@ -2,7 +2,6 @@ package cache
 
 import (
 	"fmt"
-	"github.com/chenyahui/gin-cache/persist"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chenyahui/gin-cache/persist"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
@@ -48,6 +48,22 @@ func TestCacheByRequestPath(t *testing.T) {
 	assert.Equal(t, w1.Body.String(), w2.Body.String())
 	assert.Equal(t, w2.Body.String(), w3.Body.String())
 	assert.Equal(t, w1.Code, w2.Code)
+}
+
+func TestCacheDuration(t *testing.T) {
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+	cacheURIMiddleware := CacheByRequestURI(memoryStore, 3*time.Second)
+
+	w1 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
+	time.Sleep(1 * time.Second)
+
+	w2 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
+	assert.Equal(t, w1.Body.String(), w2.Body.String())
+	assert.Equal(t, w1.Code, w2.Code)
+	time.Sleep(2 * time.Second)
+
+	w3 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
+	assert.NotEqual(t, w1.Body.String(), w3.Body.String())
 }
 
 func TestCacheByRequestURI(t *testing.T) {
