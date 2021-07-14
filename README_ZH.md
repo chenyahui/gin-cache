@@ -12,7 +12,6 @@
 * 相比于gin-contrib/cache，性能提升巨大。
 * 同时支持本机内存和redis作为缓存后端。
 * 支持用户根据请求来指定cache策略。
-* 使用sync.Pool缓存高频对象。
 * 使用singleflight解决了缓存击穿问题。
 
 # 用法
@@ -25,7 +24,6 @@ go get -u github.com/chenyahui/gin-cache
 
 ## 例子
 ## 使用本地缓存
-
 ```go
 package main
 
@@ -40,17 +38,15 @@ import (
 func main() {
 	app := gin.New()
 
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+
 	app.GET("/hello",
-		cache.CacheByPath(cache.Options{
-			CacheDuration:       5 * time.Second,
-			CacheStore:          persist.NewMemoryStore(1 * time.Minute),
-			DisableSingleFlight: true,
-		}),
+		cache.CacheByRequestURI(memoryStore, 2*time.Second),
 		func(c *gin.Context) {
-			time.Sleep(200 * time.Millisecond)
 			c.String(200, "hello world")
 		},
 	)
+
 	if err := app.Run(":8080"); err != nil {
 		panic(err)
 	}
@@ -58,7 +54,6 @@ func main() {
 ```
 
 ### 使用redis作为缓存
-
 ```go
 package main
 
@@ -80,10 +75,7 @@ func main() {
 	}))
 
 	app.GET("/hello",
-		cache.CacheByPath(cache.Options{
-			CacheDuration: 5 * time.Second,
-			CacheStore:    redisStore,
-		}),
+		cache.CacheByRequestURI(redisStore, 2*time.Second),
 		func(c *gin.Context) {
 			c.String(200, "hello world")
 		},

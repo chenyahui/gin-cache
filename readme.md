@@ -14,7 +14,6 @@ A high performance gin middleware to cache http response. Compared to gin-contri
 * Has a huge performance improvement compared to gin-contrib/cache.
 * Support cache response in local memory and redis.
 * Offer a way to custom the cache key of request.
-* Use sync.Pool to cache high frequency objects.
 * Use singleflight to avoid hotspot invalid.
 
 # How To Use
@@ -89,7 +88,6 @@ func main() {
 		panic(err)
 	}
 }
-
 ```
 
 
