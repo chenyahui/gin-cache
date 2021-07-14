@@ -2,9 +2,10 @@ package persist
 
 import (
 	"errors"
-	"github.com/ReneKroon/ttlcache/v2"
 	"reflect"
 	"time"
+
+	"github.com/ReneKroon/ttlcache/v2"
 )
 
 // MemoryStore local memory cache store
@@ -25,14 +26,17 @@ func NewMemoryStore(defaultExpiration time.Duration) *MemoryStore {
 	}
 }
 
-func (c *MemoryStore) Set(key string, value interface{}, expire time.Duration) error {
-	return c.Cache.SetWithTTL(key, value, expire)
+// Set put key value pair to memory store, and expire after expireDuration
+func (c *MemoryStore) Set(key string, value interface{}, expireDuration time.Duration) error {
+	return c.Cache.SetWithTTL(key, value, expireDuration)
 }
 
+// Delete remove key in memory store, do nothing if key doesn't exists
 func (c *MemoryStore) Delete(key string) error {
 	return c.Cache.Remove(key)
 }
 
+// Get get key in memory store, if key doesn't exists, return ErrCacheMiss
 func (c *MemoryStore) Get(key string, value interface{}) error {
 	val, err := c.Cache.Get(key)
 	if errors.Is(err, ttlcache.ErrNotFound) {
