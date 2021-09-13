@@ -10,7 +10,7 @@ type Config struct {
 	getCacheStrategyByRequest GetCacheStrategyByRequest
 
 	// hitCacheCallback
-	hitCacheCallback HitCacheCallback
+	hitCacheCallback OnHitCacheCallback
 }
 
 type Option func(c *Config)
@@ -31,9 +31,9 @@ func WithCacheStrategyByRequest(getGetCacheStrategyByRequest GetCacheStrategyByR
 	}
 }
 
-type HitCacheCallback func(c *gin.Context)
+type OnHitCacheCallback func(c *gin.Context)
 
-func WithHitCacheCallback(cb HitCacheCallback) Option{
+func WithOnHitCache(cb OnHitCacheCallback) Option{
 	return func(c *Config) {
 		if cb != nil {
 			c.hitCacheCallback = cb
