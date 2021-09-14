@@ -169,11 +169,6 @@ func (w *responseCacheWriter) WriteString(s string) (int, error) {
 	return w.ResponseWriter.WriteString(s)
 }
 
-func (w *responseCacheWriter) reset(writer gin.ResponseWriter) {
-	w.body.Reset()
-	w.ResponseWriter = writer
-}
-
 func replyWithCache(
 	c *gin.Context,
 	cfg *Config,
