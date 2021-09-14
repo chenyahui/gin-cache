@@ -166,9 +166,10 @@ func replyWithCache(
 	respCache *responseCache,
 ) {
 	c.Writer.WriteHeader(respCache.Status)
+
 	for key, values := range respCache.Header {
 		for _, val := range values {
-			c.Writer.Header().Add(key, val)
+			c.Writer.Header().Set(key, val)
 		}
 	}
 

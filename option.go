@@ -33,7 +33,7 @@ func WithCacheStrategyByRequest(getGetCacheStrategyByRequest GetCacheStrategyByR
 
 type OnHitCacheCallback func(c *gin.Context)
 
-func WithOnHitCache(cb OnHitCacheCallback) Option{
+func WithOnHitCache(cb OnHitCacheCallback) Option {
 	return func(c *Config) {
 		if cb != nil {
 			c.hitCacheCallback = cb
@@ -41,7 +41,7 @@ func WithOnHitCache(cb OnHitCacheCallback) Option{
 	}
 }
 
-var defaultHitCacheCallback = func(c *gin.Context){}
+var defaultHitCacheCallback = func(c *gin.Context) {}
 
 type Logger interface {
 	Errorf(string, ...interface{})
