@@ -22,6 +22,9 @@ type Strategy struct {
 	CacheDuration time.Duration
 }
 
+// GetCacheStrategyByRequest User can this function to design custom cache strategy by request.
+// The first return value bool means whether this request should be cached.
+// The second return value Strategy determine the special strategy by this request.
 type GetCacheStrategyByRequest func(c *gin.Context) (bool, Strategy)
 
 // Cache user must pass getCacheKey to describe the way to generate cache key
@@ -102,7 +105,7 @@ func Cache(
 	}
 }
 
-// CacheByRequestURI a shortcut function for caching response with uri
+// CacheByRequestURI a shortcut function for caching response by uri
 func CacheByRequestURI(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
 	opts = append(opts, WithCacheStrategyByRequest(func(c *gin.Context) (bool, Strategy) {
 		return true, Strategy{
@@ -112,7 +115,7 @@ func CacheByRequestURI(defaultCacheStore persist.CacheStore, defaultExpire time.
 	return Cache(defaultCacheStore, defaultExpire, opts...)
 }
 
-// CacheByRequestPath a shortcut function for caching response with url path, discard the query params
+// CacheByRequestPath a shortcut function for caching response by url path, means will discard the query params
 func CacheByRequestPath(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
 	opts = append(opts, WithCacheStrategyByRequest(func(c *gin.Context) (bool, Strategy) {
 		return true, Strategy{
