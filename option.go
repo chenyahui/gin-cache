@@ -1,6 +1,10 @@
 package cache
 
-import "github.com/gin-gonic/gin"
+import (
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
 
 type Config struct {
 	logger Logger
@@ -8,6 +12,8 @@ type Config struct {
 	getCacheStrategyByRequest GetCacheStrategyByRequest
 
 	hitCacheCallback OnHitCacheCallback
+
+	singleFlightForgetTimeout time.Duration
 }
 
 type Option func(c *Config)
@@ -54,4 +60,12 @@ func WithOnHitCache(cb OnHitCacheCallback) Option {
 
 var defaultHitCacheCallback = func(c *gin.Context) {}
 
-
+// WithSingleFlightForgetTimeout to reduce the impact of long tail requests. when request in the singleflight,
+// after the forget timeout, singleflight.Forget will be called
+func WithSingleFlightForgetTimeout(forgetTimeout time.Duration) Option {
+	return func(c *Config) {
+		if forgetTimeout > 0 {
+			c.singleFlightForgetTimeout = forgetTimeout
+		}
+	}
+}

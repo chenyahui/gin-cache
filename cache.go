@@ -65,17 +65,20 @@ func Cache(
 		}
 
 		// read cache first
-		respCache := &responseCache{}
+		{
+			respCache := &responseCache{}
+			err := cacheStore.Get(cacheKey, &respCache)
+			if err == nil {
+				replyWithCache(c, cfg, respCache)
+				return
+			}
 
-		err := cacheStore.Get(cacheKey, &respCache)
-		if err == nil {
-			replyWithCache(c, cfg, respCache)
-			return
+			if err != persist.ErrCacheMiss {
+				cfg.logger.Errorf("get cache error: %s, cache key: %s", err, cacheKey)
+			}
 		}
 
-		if err != persist.ErrCacheMiss {
-			cfg.logger.Errorf("get cache error: %s, cache key: %s", err, cacheKey)
-		}
+		// cache miss, then call the backend
 
 		// use responseCacheWriter in order to record the response
 		cacheWriter := &responseCacheWriter{ResponseWriter: c.Writer}
@@ -83,10 +86,18 @@ func Cache(
 
 		inFlight := false
 		rawRespCache, _, _ := sfGroup.Do(cacheKey, func() (interface{}, error) {
+			if cfg.singleFlightForgetTimeout > 0 {
+				forgetTimer := time.AfterFunc(cfg.singleFlightForgetTimeout, func() {
+					sfGroup.Forget(cacheKey)
+				})
+				defer forgetTimer.Stop()
+			}
+
 			c.Next()
 
 			inFlight = true
 
+			respCache := &responseCache{}
 			respCache.fillWithCacheWriter(cacheWriter)
 
 			// only cache 2xx response
