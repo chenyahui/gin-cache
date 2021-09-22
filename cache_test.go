@@ -83,6 +83,44 @@ func TestCacheByRequestURI(t *testing.T) {
 	assert.Equal(t, "uid:u4", w4.Body.String())
 }
 
+func TestHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	testWriter := httptest.NewRecorder()
+
+	_, engine := gin.CreateTestContext(testWriter)
+
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+	cacheURIMiddleware := CacheByRequestURI(memoryStore, 3*time.Second)
+
+	engine.Use(func(c *gin.Context) {
+		c.Header("test_header_key", "test_header_value")
+	})
+
+	engine.Use(cacheURIMiddleware)
+
+	engine.GET("/cache", func(c *gin.Context) {
+		c.Header("test_header_key", "test_header_value2")
+		c.String(http.StatusOK, "value")
+	})
+
+	testRequest := httptest.NewRequest(http.MethodGet, "/cache", nil)
+
+	{
+		engine.ServeHTTP(testWriter, testRequest)
+		values := testWriter.Header().Values("test_header_key")
+		assert.Equal(t, 1, len(values))
+		assert.Equal(t, "test_header_value2", values[0])
+
+	}
+
+	{
+		engine.ServeHTTP(testWriter, testRequest)
+		values := testWriter.Header().Values("test_header_key")
+		assert.Equal(t, 1, len(values))
+		assert.Equal(t, "test_header_value2", values[0])
+	}
+}
+
 func TestConcurrentRequest(t *testing.T) {
 	memoryStore := persist.NewMemoryStore(1 * time.Minute)
 	cacheURIMiddleware := CacheByRequestURI(memoryStore, 1*time.Second)
@@ -98,7 +136,7 @@ func TestConcurrentRequest(t *testing.T) {
 			expect := fmt.Sprintf("uid:%d", uid)
 
 			writer := mockHttpRequest(cacheURIMiddleware, url, false)
-			assert.Equal(t, writer.Body.String(), expect)
+			assert.Equal(t, expect, writer.Body.String())
 		}()
 	}
 
