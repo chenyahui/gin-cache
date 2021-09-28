@@ -14,7 +14,7 @@ A high performance gin middleware to cache http response. Compared to gin-contri
 * Has a huge performance improvement compared to gin-contrib/cache.
 * Support cache response in local memory and redis.
 * Offer a way to custom the cache key of request.
-* Use singleflight to avoid hotspot invalid.
+* Use singleflight to avoid cache breakdown problem.
 
 # How To Use
 
