@@ -31,12 +31,12 @@ func (c *MemoryStore) Set(key string, value interface{}, expireDuration time.Dur
 	return c.Cache.SetWithTTL(key, value, expireDuration)
 }
 
-// Delete remove key in memory store, do nothing if key doesn't exists
+// Delete remove key in memory store, do nothing if key doesn't exist
 func (c *MemoryStore) Delete(key string) error {
 	return c.Cache.Remove(key)
 }
 
-// Get get key in memory store, if key doesn't exists, return ErrCacheMiss
+// Get get key in memory store, if key doesn't exist, return ErrCacheMiss
 func (c *MemoryStore) Get(key string, value interface{}) error {
 	val, err := c.Cache.Get(key)
 	if errors.Is(err, ttlcache.ErrNotFound) {

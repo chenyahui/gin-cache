@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Config contains all options
 type Config struct {
 	logger Logger
 
@@ -16,9 +17,10 @@ type Config struct {
 	singleFlightForgetTimeout time.Duration
 }
 
+// Option represents the optional function.
 type Option func(c *Config)
 
-// WithLogger user can record logs by the logger
+// WithLogger set the custom logger
 func WithLogger(l Logger) Option {
 	return func(c *Config) {
 		if l != nil {
@@ -31,7 +33,7 @@ type Logger interface {
 	Errorf(string, ...interface{})
 }
 
-// Discard the default logger that discard all logs of gin-cache
+// Discard the default logger that will discard all logs of gin-cache
 type Discard struct {
 }
 
