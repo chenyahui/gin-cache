@@ -34,8 +34,9 @@ func Cache(
 	opts ...Option,
 ) gin.HandlerFunc {
 	cfg := &Config{
-		logger:           Discard{},
-		hitCacheCallback: defaultHitCacheCallback,
+		logger:                    Discard{},
+		hitCacheCallback:          defaultHitCacheCallback,
+		shareSingleFlightCallback: defaultShareSingleFlightCallback,
 	}
 
 	for _, opt := range opts {
@@ -113,6 +114,7 @@ func Cache(
 
 		if !inFlight {
 			replyWithCache(c, cfg, rawRespCache.(*responseCache))
+			cfg.shareSingleFlightCallback(c)
 		}
 	}
 }
