@@ -70,6 +70,7 @@ func Cache(
 			err := cacheStore.Get(cacheKey, &respCache)
 			if err == nil {
 				replyWithCache(c, cfg, respCache)
+				cfg.hitCacheCallback(c)
 				return
 			}
 
@@ -185,8 +186,6 @@ func replyWithCache(
 	if _, err := c.Writer.Write(respCache.Data); err != nil {
 		cfg.logger.Errorf("write response error: %s", err)
 	}
-
-	cfg.hitCacheCallback(c)
 
 	// abort handler chain and return directly
 	c.Abort()
