@@ -15,8 +15,6 @@ import (
 )
 
 func mockHttpRequest(middleware gin.HandlerFunc, url string, withRand bool) *httptest.ResponseRecorder {
-	gin.SetMode(gin.TestMode)
-
 	testWriter := httptest.NewRecorder()
 
 	_, engine := gin.CreateTestContext(testWriter)
