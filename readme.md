@@ -3,6 +3,7 @@
 [![doc](https://img.shields.io/badge/go.dev-doc-007d9c?style=flat-square&logo=read-the-docs)](https://pkg.go.dev/github.com/chenyahui/gin-cache)
 [![goreportcard for gin-cache](https://goreportcard.com/badge/github.com/chenyahui/gin-cache)](https://goreportcard.com/report/github.com/chenyahui/gin-cache)
 ![](https://img.shields.io/badge/license-MIT-green)
+[![codecov](https://codecov.io/gh/chenyahui/gin-cache/branch/main/graph/badge.svg?token=MX8Z4D5RZS)](https://codecov.io/gh/chenyahui/gin-cache)
 
 English | [🇨🇳中文](README_ZH.md)
 
