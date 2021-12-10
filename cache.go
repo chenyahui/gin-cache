@@ -119,25 +119,31 @@ func Cache(
 	}
 }
 
-// CacheByRequestURI a shortcut function for caching response by uri
-func CacheByRequestURI(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
+type CacheKey func(c *gin.Context) string
+
+func CacheByKey(ck CacheKey, defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
 	opts = append(opts, WithCacheStrategyByRequest(func(c *gin.Context) (bool, Strategy) {
 		return true, Strategy{
-			CacheKey: c.Request.RequestURI,
+			CacheKey: ck(c),
 		}
 	}))
 	return Cache(defaultCacheStore, defaultExpire, opts...)
 }
 
+// CacheByRequestURI a shortcut function for caching response by uri
+func CacheByRequestURI(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
+	ck := func(c *gin.Context) string {
+		return c.Request.RequestURI
+	}
+	return CacheByKey(ck, defaultCacheStore, defaultExpire, opts...)
+}
+
 // CacheByRequestPath a shortcut function for caching response by url path, means will discard the query params
 func CacheByRequestPath(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
-	opts = append(opts, WithCacheStrategyByRequest(func(c *gin.Context) (bool, Strategy) {
-		return true, Strategy{
-			CacheKey: c.Request.URL.Path,
-		}
-	}))
-
-	return Cache(defaultCacheStore, defaultExpire, opts...)
+	ck := func(c *gin.Context) string {
+		return c.Request.URL.Path
+	}
+	return CacheByKey(ck, defaultCacheStore, defaultExpire, opts...)
 }
 
 func init() {
