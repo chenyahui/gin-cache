@@ -33,11 +33,7 @@ func Cache(
 	defaultExpire time.Duration,
 	opts ...Option,
 ) gin.HandlerFunc {
-	cfg := &Config{
-		logger:                    Discard{},
-		hitCacheCallback:          defaultHitCacheCallback,
-		shareSingleFlightCallback: defaultShareSingleFlightCallback,
-	}
+	cfg := newConfig()
 
 	for _, opt := range opts {
 		opt(cfg)
@@ -67,7 +63,7 @@ func Cache(
 
 		// read cache first
 		{
-			respCache := &responseCache{}
+			respCache := &ResponseCache{}
 			err := cacheStore.Get(cacheKey, &respCache)
 			if err == nil {
 				replyWithCache(c, cfg, respCache)
@@ -99,7 +95,7 @@ func Cache(
 
 			inFlight = true
 
-			respCache := &responseCache{}
+			respCache := &ResponseCache{}
 			respCache.fillWithCacheWriter(cacheWriter)
 
 			// only cache 2xx response
@@ -113,7 +109,7 @@ func Cache(
 		})
 
 		if !inFlight {
-			replyWithCache(c, cfg, rawRespCache.(*responseCache))
+			replyWithCache(c, cfg, rawRespCache.(*ResponseCache))
 			cfg.shareSingleFlightCallback(c)
 		}
 	}
@@ -141,16 +137,17 @@ func CacheByRequestPath(defaultCacheStore persist.CacheStore, defaultExpire time
 }
 
 func init() {
-	gob.Register(&responseCache{})
+	gob.Register(&ResponseCache{})
 }
 
-type responseCache struct {
+// ResponseCache record the http response cache
+type ResponseCache struct {
 	Status int
 	Header http.Header
 	Data   []byte
 }
 
-func (c *responseCache) fillWithCacheWriter(cacheWriter *responseCacheWriter) {
+func (c *ResponseCache) fillWithCacheWriter(cacheWriter *responseCacheWriter) {
 	c.Status = cacheWriter.Status()
 	c.Data = cacheWriter.body.Bytes()
 	c.Header = cacheWriter.Header().Clone()
@@ -175,8 +172,10 @@ func (w *responseCacheWriter) WriteString(s string) (int, error) {
 func replyWithCache(
 	c *gin.Context,
 	cfg *Config,
-	respCache *responseCache,
+	respCache *ResponseCache,
 ) {
+	cfg.beforeReplyWithCacheCallback(c, respCache)
+
 	c.Writer.WriteHeader(respCache.Status)
 
 	for key, values := range respCache.Header {

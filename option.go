@@ -14,8 +14,19 @@ type Config struct {
 
 	hitCacheCallback OnHitCacheCallback
 
+	beforeReplyWithCacheCallback BeforeReplyWithCacheCallback
+
 	singleFlightForgetTimeout time.Duration
 	shareSingleFlightCallback OnShareSingleFlightCallback
+}
+
+func newConfig() *Config {
+	return &Config{
+		logger:                       Discard{},
+		hitCacheCallback:             defaultHitCacheCallback,
+		beforeReplyWithCacheCallback: defaultBeforeReplyWithCacheCallback,
+		shareSingleFlightCallback:    defaultShareSingleFlightCallback,
+	}
 }
 
 // Option represents the optional function.
@@ -67,6 +78,19 @@ func WithOnHitCache(cb OnHitCacheCallback) Option {
 	}
 }
 
+type BeforeReplyWithCacheCallback func(c *gin.Context, cache *ResponseCache)
+
+var defaultBeforeReplyWithCacheCallback = func(c *gin.Context, cache *ResponseCache) {}
+
+// WithBeforeReplyWithCache will be called before replying with cache.
+func WithBeforeReplyWithCache(cb BeforeReplyWithCacheCallback) Option {
+	return func(c *Config) {
+		if cb != nil {
+			c.beforeReplyWithCacheCallback = cb
+		}
+	}
+}
+
 // OnShareSingleFlightCallback define the callback when share the singleflight result
 type OnShareSingleFlightCallback func(c *gin.Context)
 
@@ -81,8 +105,8 @@ func WithOnShareSingleFlight(cb OnShareSingleFlightCallback) Option {
 	}
 }
 
-// WithSingleFlightForgetTimeout to reduce the impact of long tail requests. when request in the singleflight,
-// after the forget timeout, singleflight.Forget will be called
+// WithSingleFlightForgetTimeout to reduce the impact of long tail requests.
+// singleflight.Forget will be called after the timeout has reached for each backend request when timeout is greater than zero.
 func WithSingleFlightForgetTimeout(forgetTimeout time.Duration) Option {
 	return func(c *Config) {
 		if forgetTimeout > 0 {
