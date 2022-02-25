@@ -52,7 +52,6 @@ type Discard struct {
 
 // Errorf will output the log at error level
 func (l Discard) Errorf(string, ...interface{}) {
-
 }
 
 // WithCacheStrategyByRequest set up the custom strategy by per request

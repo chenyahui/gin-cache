@@ -140,3 +140,29 @@ func TestConcurrentRequest(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestWriteHeader(t *testing.T) {
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+	cacheURIMiddleware := CacheByRequestURI(memoryStore, 1*time.Second)
+
+	testWriter := httptest.NewRecorder()
+
+	_, engine := gin.CreateTestContext(testWriter)
+	engine.Use(cacheURIMiddleware)
+	engine.GET("/cache", func(c *gin.Context) {
+		c.Writer.WriteHeader(http.StatusOK)
+		c.Writer.Header().Set("hello", "world")
+	})
+
+	{
+		testRequest := httptest.NewRequest(http.MethodGet, "/cache", nil)
+		engine.ServeHTTP(testWriter, testRequest)
+		assert.Equal(t, "world", testWriter.Header().Get("hello"))
+	}
+
+	{
+		testRequest := httptest.NewRequest(http.MethodGet, "/cache", nil)
+		engine.ServeHTTP(testWriter, testRequest)
+		assert.Equal(t, "world", testWriter.Header().Get("hello"))
+	}
+}
