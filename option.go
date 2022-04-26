@@ -18,15 +18,23 @@ type Config struct {
 
 	singleFlightForgetTimeout time.Duration
 	shareSingleFlightCallback OnShareSingleFlightCallback
+
+	ignoreQueryOrder bool
 }
 
-func newConfig() *Config {
-	return &Config{
+func newConfigByOpts(opts ...Option) *Config {
+	cfg := &Config{
 		logger:                       Discard{},
 		hitCacheCallback:             defaultHitCacheCallback,
 		beforeReplyWithCacheCallback: defaultBeforeReplyWithCacheCallback,
 		shareSingleFlightCallback:    defaultShareSingleFlightCallback,
 	}
+
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	return cfg
 }
 
 // Option represents the optional function.
@@ -111,5 +119,12 @@ func WithSingleFlightForgetTimeout(forgetTimeout time.Duration) Option {
 		if forgetTimeout > 0 {
 			c.singleFlightForgetTimeout = forgetTimeout
 		}
+	}
+}
+
+// IgnoreQueryOrder will ignore the queries order in url when generate cache key . This option only takes effect in CacheByRequestURI function
+func IgnoreQueryOrder() Option {
+	return func(c *Config) {
+		c.ignoreQueryOrder = true
 	}
 }

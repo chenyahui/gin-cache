@@ -37,7 +37,7 @@ func (store *RedisStore) Delete(key string) error {
 	return store.RedisClient.Del(ctx, key).Err()
 }
 
-// Get get key in redis, if key doesn't exist, return ErrCacheMiss
+// Get retrieves an item from redis, if key doesn't exist, return ErrCacheMiss
 func (store *RedisStore) Get(key string, value interface{}) error {
 	ctx := context.TODO()
 	payload, err := store.RedisClient.Get(ctx, key).Bytes()
@@ -49,6 +49,5 @@ func (store *RedisStore) Get(key string, value interface{}) error {
 	if err != nil {
 		return err
 	}
-
 	return Deserialize(payload, value)
 }

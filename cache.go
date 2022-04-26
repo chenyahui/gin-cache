@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/gob"
 	"net/http"
+	"net/url"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/chenyahui/gin-cache/persist"
@@ -33,10 +36,17 @@ func Cache(
 	defaultExpire time.Duration,
 	opts ...Option,
 ) gin.HandlerFunc {
-	cfg := newConfig()
+	cfg := newConfigByOpts(opts...)
+	return cache(defaultCacheStore, defaultExpire, cfg)
+}
 
-	for _, opt := range opts {
-		opt(cfg)
+func cache(
+	defaultCacheStore persist.CacheStore,
+	defaultExpire time.Duration,
+	cfg *Config,
+) gin.HandlerFunc {
+	if cfg.getCacheStrategyByRequest == nil {
+		panic("cache strategy is nil")
 	}
 
 	sfGroup := singleflight.Group{}
@@ -117,12 +127,61 @@ func Cache(
 
 // CacheByRequestURI a shortcut function for caching response by uri
 func CacheByRequestURI(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
-	opts = append(opts, WithCacheStrategyByRequest(func(c *gin.Context) (bool, Strategy) {
-		return true, Strategy{
-			CacheKey: c.Request.RequestURI,
+	cfg := newConfigByOpts(opts...)
+
+	var cacheStrategy GetCacheStrategyByRequest
+	if cfg.ignoreQueryOrder {
+		cacheStrategy = func(c *gin.Context) (bool, Strategy) {
+			newUri, err := getRequestUriIgnoreQueryOrder(c.Request.RequestURI)
+			if err != nil {
+				cfg.logger.Errorf("getRequestUriIgnoreQueryOrder error: %s", err)
+				newUri = c.Request.RequestURI
+			}
+
+			return true, Strategy{
+				CacheKey: newUri,
+			}
 		}
-	}))
-	return Cache(defaultCacheStore, defaultExpire, opts...)
+
+	} else {
+		cacheStrategy = func(c *gin.Context) (bool, Strategy) {
+			return true, Strategy{
+				CacheKey: c.Request.RequestURI,
+			}
+		}
+	}
+
+	cfg.getCacheStrategyByRequest = cacheStrategy
+
+	return cache(defaultCacheStore, defaultExpire, cfg)
+}
+
+func getRequestUriIgnoreQueryOrder(requestURI string) (string, error) {
+	parsedUrl, err := url.ParseRequestURI("/test?id=123&name=yh&a=c")
+	if err != nil {
+		return "", err
+	}
+
+	values := parsedUrl.Query()
+
+	if len(values) == 0 {
+		return requestURI, nil
+	}
+
+	queryKeys := make([]string, 0, len(values))
+	for queryKey := range values {
+		queryKeys = append(queryKeys, queryKey)
+	}
+	sort.Strings(queryKeys)
+
+	queryVals := make([]string, 0, len(values))
+	for _, queryKey := range queryKeys {
+		for _, val := range values[queryKey] {
+			queryVals = append(queryVals, queryKey+"="+val)
+		}
+	}
+
+	return parsedUrl.Path + "?" + strings.Join(queryVals, "&"), nil
 }
 
 // CacheByRequestPath a shortcut function for caching response by url path, means will discard the query params

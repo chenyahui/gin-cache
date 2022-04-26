@@ -2,6 +2,7 @@ package cache
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	gin.SetMode(gin.TestMode)
+}
 
 func mockHttpRequest(middleware gin.HandlerFunc, url string, withRand bool) *httptest.ResponseRecorder {
 	testWriter := httptest.NewRecorder()
@@ -82,7 +87,6 @@ func TestCacheByRequestURI(t *testing.T) {
 }
 
 func TestHeader(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	testWriter := httptest.NewRecorder()
 
 	_, engine := gin.CreateTestContext(testWriter)
@@ -165,4 +169,22 @@ func TestWriteHeader(t *testing.T) {
 		engine.ServeHTTP(testWriter, testRequest)
 		assert.Equal(t, "world", testWriter.Header().Get("hello"))
 	}
+}
+
+func TestGetRequestUriIgnoreQueryOrder(t *testing.T) {
+	val, err := getRequestUriIgnoreQueryOrder("/test?id=123&name=yh&a=c")
+	require.Nil(t, err)
+
+	assert.Equal(t, "/test?a=c&id=123&name=yh", val)
+}
+
+func TestCacheByRequestURIIgnoreOrder(t *testing.T) {
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+	cacheURIMiddleware := CacheByRequestURI(memoryStore, 3*time.Second, IgnoreQueryOrder())
+
+	w1 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1&a=2", true)
+	w2 := mockHttpRequest(cacheURIMiddleware, "/cache?a=2&uid=u1", true)
+
+	assert.Equal(t, w1.Body.String(), w2.Body.String())
+	assert.Equal(t, w1.Code, w2.Code)
 }
