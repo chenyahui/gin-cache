@@ -157,7 +157,7 @@ func CacheByRequestURI(defaultCacheStore persist.CacheStore, defaultExpire time.
 }
 
 func getRequestUriIgnoreQueryOrder(requestURI string) (string, error) {
-	parsedUrl, err := url.ParseRequestURI("/test?id=123&name=yh&a=c")
+	parsedUrl, err := url.ParseRequestURI(requestURI)
 	if err != nil {
 		return "", err
 	}
