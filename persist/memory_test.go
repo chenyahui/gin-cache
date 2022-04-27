@@ -1,6 +1,7 @@
 package persist
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -11,7 +12,7 @@ func TestMemoryStore(t *testing.T) {
 	memoryStore := NewMemoryStore(1 * time.Minute)
 
 	expectVal := "123"
-	assert.Nil(t, memoryStore.Set("test", expectVal, 1*time.Second))
+	require.Nil(t, memoryStore.Set("test", expectVal, 1*time.Second))
 
 	value := ""
 	assert.Nil(t, memoryStore.Get("test", &value))
