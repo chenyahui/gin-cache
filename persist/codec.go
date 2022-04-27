@@ -15,12 +15,7 @@ func Serialize(value interface{}) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// Deserialize deserialices the passed []byte into a the passed ptr interface{}
-func Deserialize(byt []byte, ptr interface{}) (err error) {
-	b := bytes.NewBuffer(byt)
-	decoder := gob.NewDecoder(b)
-	if err = decoder.Decode(ptr); err != nil {
-		return err
-	}
-	return nil
+// Deserialize will deserialize the passed []byte into the passed ptr interface{}
+func Deserialize(payload []byte, ptr interface{}) (err error) {
+	return gob.NewDecoder(bytes.NewBuffer(payload)).Decode(ptr)
 }
