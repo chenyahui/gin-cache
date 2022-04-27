@@ -172,10 +172,13 @@ func TestWriteHeader(t *testing.T) {
 }
 
 func TestGetRequestUriIgnoreQueryOrder(t *testing.T) {
-	val, err := getRequestUriIgnoreQueryOrder("/test?id=123&name=yh&a=c")
+	val, err := getRequestUriIgnoreQueryOrder("/test?c=3&b=2&a=1")
 	require.Nil(t, err)
+	assert.Equal(t, "/test?a=1&b=2&c=3", val)
 
-	assert.Equal(t, "/test?a=c&id=123&name=yh", val)
+	val, err = getRequestUriIgnoreQueryOrder("/test?d=4&e=5")
+	require.Nil(t, err)
+	assert.Equal(t, "/test?d=4&e=5", val)
 }
 
 func TestCacheByRequestURIIgnoreOrder(t *testing.T) {
