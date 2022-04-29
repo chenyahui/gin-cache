@@ -180,6 +180,7 @@ func getRequestUriIgnoreQueryOrder(requestURI string) (string, error) {
 
 	queryVals := make([]string, 0, len(values))
 	for _, queryKey := range queryKeys {
+		sort.Strings(values[queryKey])
 		for _, val := range values[queryKey] {
 			queryVals = append(queryVals, queryKey+"="+val)
 		}
