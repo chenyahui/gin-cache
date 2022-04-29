@@ -20,6 +20,7 @@ type Config struct {
 	shareSingleFlightCallback OnShareSingleFlightCallback
 
 	ignoreQueryOrder bool
+	prefixKey        string
 }
 
 func newConfigByOpts(opts ...Option) *Config {
@@ -126,5 +127,12 @@ func WithSingleFlightForgetTimeout(forgetTimeout time.Duration) Option {
 func IgnoreQueryOrder() Option {
 	return func(c *Config) {
 		c.ignoreQueryOrder = true
+	}
+}
+
+// PrefixKey will prefix the key
+func PrefixKey(prefix string) Option {
+	return func(c *Config) {
+		c.prefixKey = prefix
 	}
 }

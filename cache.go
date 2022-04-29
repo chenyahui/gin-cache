@@ -60,6 +60,10 @@ func cache(
 
 		cacheKey := cacheStrategy.CacheKey
 
+		if cfg.prefixKey != "" {
+			cacheKey = cfg.prefixKey + cacheKey
+		}
+
 		// merge cfg
 		cacheStore := defaultCacheStore
 		if cacheStrategy.CacheStore != nil {
