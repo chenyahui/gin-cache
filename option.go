@@ -130,8 +130,8 @@ func IgnoreQueryOrder() Option {
 	}
 }
 
-// PrefixKey will prefix the key
-func PrefixKey(prefix string) Option {
+// WithPrefixKey will prefix the key
+func WithPrefixKey(prefix string) Option {
 	return func(c *Config) {
 		c.prefixKey = prefix
 	}
