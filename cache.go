@@ -60,6 +60,10 @@ func cache(
 
 		cacheKey := cacheStrategy.CacheKey
 
+		if cfg.prefixKey != "" {
+			cacheKey = cfg.prefixKey + cacheKey
+		}
+
 		// merge cfg
 		cacheStore := defaultCacheStore
 		if cacheStrategy.CacheStore != nil {
@@ -176,6 +180,7 @@ func getRequestUriIgnoreQueryOrder(requestURI string) (string, error) {
 
 	queryVals := make([]string, 0, len(values))
 	for _, queryKey := range queryKeys {
+		sort.Strings(values[queryKey])
 		for _, val := range values[queryKey] {
 			queryVals = append(queryVals, queryKey+"="+val)
 		}
