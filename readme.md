@@ -16,6 +16,7 @@ A high performance gin middleware to cache http response. Compared to gin-contri
 * Cache http response in local memory or Redis.
 * Offer a way to custom the cache strategy by per request.
 * Use singleflight to avoid cache breakdown problem.
+* Only Cache 2xx HTTP Response.
 
 # How To Use
 
