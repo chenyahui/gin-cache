@@ -190,4 +190,12 @@ func TestCacheByRequestURIIgnoreOrder(t *testing.T) {
 
 	assert.Equal(t, w1.Body.String(), w2.Body.String())
 	assert.Equal(t, w1.Code, w2.Code)
+
+	// test array query param
+	w3 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1&a=2&ids=1&ids=2", true)
+	w4 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1&a=2&ids=2&ids=1", true)
+
+	assert.Equal(t, w3.Body.String(), w4.Body.String())
+	assert.Equal(t, w3.Code, w4.Code)
+	assert.NotEqual(t, w3.Body.String(), w1.Body.String())
 }
