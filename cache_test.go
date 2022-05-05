@@ -47,9 +47,9 @@ func TestCacheByRequestPath(t *testing.T) {
 	w2 := mockHttpRequest(cachePathMiddleware, "/cache?uid=u2", true)
 	w3 := mockHttpRequest(cachePathMiddleware, "/cache?uid=u3", true)
 
-	assert.NotEqual(t, w1.Body.String(), "")
-	assert.Equal(t, w1.Body.String(), w2.Body.String())
-	assert.Equal(t, w2.Body.String(), w3.Body.String())
+	assert.NotEqual(t, w1.Body, "")
+	assert.Equal(t, w1.Body, w2.Body)
+	assert.Equal(t, w2.Body, w3.Body)
 	assert.Equal(t, w1.Code, w2.Code)
 }
 
@@ -61,12 +61,12 @@ func TestCacheDuration(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	w2 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
-	assert.Equal(t, w1.Body.String(), w2.Body.String())
+	assert.Equal(t, w1.Body, w2.Body)
 	assert.Equal(t, w1.Code, w2.Code)
 	time.Sleep(2 * time.Second)
 
 	w3 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
-	assert.NotEqual(t, w1.Body.String(), w3.Body.String())
+	assert.NotEqual(t, w1.Body, w3.Body)
 }
 
 func TestCacheByRequestURI(t *testing.T) {
@@ -77,10 +77,10 @@ func TestCacheByRequestURI(t *testing.T) {
 	w2 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
 	w3 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u2", true)
 
-	assert.Equal(t, w1.Body.String(), w2.Body.String())
+	assert.Equal(t, w1.Body, w2.Body)
 	assert.Equal(t, w1.Code, w2.Code)
 
-	assert.NotEqual(t, w2.Body.String(), w3.Body.String())
+	assert.NotEqual(t, w2.Body, w3.Body)
 
 	w4 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u4", false)
 	assert.Equal(t, "uid:u4", w4.Body.String())
@@ -173,11 +173,11 @@ func TestWriteHeader(t *testing.T) {
 
 func TestGetRequestUriIgnoreQueryOrder(t *testing.T) {
 	val, err := getRequestUriIgnoreQueryOrder("/test?c=3&b=2&a=1")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "/test?a=1&b=2&c=3", val)
 
 	val, err = getRequestUriIgnoreQueryOrder("/test?d=4&e=5")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "/test?d=4&e=5", val)
 }
 
@@ -188,14 +188,36 @@ func TestCacheByRequestURIIgnoreOrder(t *testing.T) {
 	w1 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1&a=2", true)
 	w2 := mockHttpRequest(cacheURIMiddleware, "/cache?a=2&uid=u1", true)
 
-	assert.Equal(t, w1.Body.String(), w2.Body.String())
+	assert.Equal(t, w1.Body, w2.Body)
 	assert.Equal(t, w1.Code, w2.Code)
 
 	// test array query param
-	w3 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1&a=2&ids=1&ids=2", true)
+	w3 := mockHttpRequest(cacheURIMiddleware, "/cache?a=2&uid=u1&ids=1&ids=2", true)
 	w4 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1&a=2&ids=2&ids=1", true)
 
-	assert.Equal(t, w3.Body.String(), w4.Body.String())
+	assert.Equal(t, w3.Body, w4.Body)
 	assert.Equal(t, w3.Code, w4.Code)
-	assert.NotEqual(t, w3.Body.String(), w1.Body.String())
+	assert.NotEqual(t, w3.Body, w1.Body)
+}
+
+const prefixKey = "#prefix#"
+
+func TestPrefixKey(t *testing.T) {
+
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+	cacheURIMiddleware := CacheByRequestPath(
+		memoryStore,
+		3*time.Second,
+		WithPrefixKey(prefixKey),
+	)
+
+	requestPath := "/cache"
+
+	w1 := mockHttpRequest(cacheURIMiddleware, requestPath, true)
+
+	err := memoryStore.Delete(prefixKey + requestPath)
+	require.NoError(t, err)
+
+	w2 := mockHttpRequest(cacheURIMiddleware, requestPath, true)
+	assert.NotEqual(t, w1.Body, w2.Body)
 }
