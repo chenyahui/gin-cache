@@ -21,6 +21,12 @@ func NewRedisStore(redisClient *redis.Client) *RedisStore {
 }
 
 // Set put key value pair to redis, and expire after expireDuration
+func (store *RedisStore) SetAnyType(key string, value interface{}, expire time.Duration) error {
+	ctx := context.TODO()
+	return store.RedisClient.Set(ctx, key, value, expire).Err()
+}
+
+// Set put key value pair to redis, and expire after expireDuration
 func (store *RedisStore) Set(key string, value interface{}, expire time.Duration) error {
 	payload, err := Serialize(value)
 	if err != nil {
