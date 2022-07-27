@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ReneKroon/ttlcache/v2"
+	"github.com/jellydator/ttlcache/v2"
 )
 
 // MemoryStore local memory cache store
