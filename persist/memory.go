@@ -47,3 +47,10 @@ func (c *MemoryStore) Get(key string, value interface{}) error {
 	v.Elem().Set(reflect.ValueOf(val))
 	return nil
 }
+
+// SetCacheSizeLimit sets a limit to the amount of cached items.
+// If a new item is getting cached, the closes item to being timed out will be replaced
+// Set to 0 to turn off
+func (c *MemoryStore) SetCacheSizeLimit(limit int) {
+	c.cache.SetCacheSizeLimit(limit)
+}
