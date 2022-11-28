@@ -2,6 +2,7 @@ package cache
 
 import (
 	"bytes"
+	"crypto"
 	"encoding/gob"
 	"net/http"
 	"net/url"
@@ -201,6 +202,28 @@ func CacheByRequestPath(defaultCacheStore persist.CacheStore, defaultExpire time
 	}))
 
 	return Cache(defaultCacheStore, defaultExpire, opts...)
+}
+
+// CacheByRequestBody a shortcut function for caching response by request body
+func CacheByRequestBody(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
+	cacheStrategy := func(c *gin.Context) (bool, Strategy) {
+		requestBody, err := c.GetRawData()
+		if err != nil {
+			return false, Strategy{}
+		}
+		h := crypto.SHA256.New()
+		_, err = h.Write(requestBody)
+		if err != nil {
+			return false, Strategy{}
+		}
+		bodyHash := string(h.Sum(nil))
+		return true, Strategy{
+			CacheKey: bodyHash,
+		}
+	}
+	cfg := newConfigByOpts(opts...)
+	cfg.getCacheStrategyByRequest = cacheStrategy
+	return cache(defaultCacheStore, defaultExpire, cfg)
 }
 
 func init() {
