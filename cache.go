@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"encoding/gob"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
@@ -208,6 +209,8 @@ func CacheByRequestPath(defaultCacheStore persist.CacheStore, defaultExpire time
 func CacheByRequestBody(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
 	cacheStrategy := func(c *gin.Context) (bool, Strategy) {
 		requestBody, err := c.GetRawData()
+		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(requestBody))
+
 		if err != nil {
 			return false, Strategy{}
 		}
