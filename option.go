@@ -21,6 +21,7 @@ type Config struct {
 
 	ignoreQueryOrder bool
 	prefixKey        string
+	withoutHeader    bool
 }
 
 func newConfigByOpts(opts ...Option) *Config {
@@ -134,5 +135,11 @@ func IgnoreQueryOrder() Option {
 func WithPrefixKey(prefix string) Option {
 	return func(c *Config) {
 		c.prefixKey = prefix
+	}
+}
+
+func WithoutHeader() Option {
+	return func(c *Config) {
+		c.withoutHeader = true
 	}
 }

@@ -93,7 +93,9 @@ func cache(
 		// cache miss, then call the backend
 
 		// use responseCacheWriter in order to record the response
-		cacheWriter := &responseCacheWriter{ResponseWriter: c.Writer}
+		cacheWriter := &responseCacheWriter{
+			ResponseWriter: c.Writer,
+		}
 		c.Writer = cacheWriter
 
 		inFlight := false
@@ -110,7 +112,7 @@ func cache(
 			inFlight = true
 
 			respCache := &ResponseCache{}
-			respCache.fillWithCacheWriter(cacheWriter)
+			respCache.fillWithCacheWriter(cacheWriter, cfg.withoutHeader)
 
 			// only cache 2xx response
 			if !c.IsAborted() && cacheWriter.Status() < 300 && cacheWriter.Status() >= 200 {
@@ -211,15 +213,18 @@ type ResponseCache struct {
 	Data   []byte
 }
 
-func (c *ResponseCache) fillWithCacheWriter(cacheWriter *responseCacheWriter) {
+func (c *ResponseCache) fillWithCacheWriter(cacheWriter *responseCacheWriter, withoutHeader bool) {
 	c.Status = cacheWriter.Status()
 	c.Data = cacheWriter.body.Bytes()
-	c.Header = cacheWriter.Header().Clone()
+	if !withoutHeader {
+		c.Header = cacheWriter.Header().Clone()
+	}
 }
 
 // responseCacheWriter
 type responseCacheWriter struct {
 	gin.ResponseWriter
+
 	body bytes.Buffer
 }
 
@@ -242,9 +247,11 @@ func replyWithCache(
 
 	c.Writer.WriteHeader(respCache.Status)
 
-	for key, values := range respCache.Header {
-		for _, val := range values {
-			c.Writer.Header().Set(key, val)
+	if !cfg.withoutHeader {
+		for key, values := range respCache.Header {
+			for _, val := range values {
+				c.Writer.Header().Set(key, val)
+			}
 		}
 	}
 
