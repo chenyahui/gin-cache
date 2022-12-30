@@ -88,6 +88,7 @@ func cache(
 			if err != persist.ErrCacheMiss {
 				cfg.logger.Errorf("get cache error: %s, cache key: %s", err, cacheKey)
 			}
+			cfg.missCacheCallback(c)
 		}
 
 		// cache miss, then call the backend

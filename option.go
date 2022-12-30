@@ -12,7 +12,8 @@ type Config struct {
 
 	getCacheStrategyByRequest GetCacheStrategyByRequest
 
-	hitCacheCallback OnHitCacheCallback
+	hitCacheCallback  OnHitCacheCallback
+	missCacheCallback OnMissCacheCallback
 
 	beforeReplyWithCacheCallback BeforeReplyWithCacheCallback
 
@@ -28,6 +29,7 @@ func newConfigByOpts(opts ...Option) *Config {
 	cfg := &Config{
 		logger:                       Discard{},
 		hitCacheCallback:             defaultHitCacheCallback,
+		missCacheCallback:            defaultMissCacheCallback,
 		beforeReplyWithCacheCallback: defaultBeforeReplyWithCacheCallback,
 		shareSingleFlightCallback:    defaultShareSingleFlightCallback,
 	}
@@ -83,6 +85,20 @@ func WithOnHitCache(cb OnHitCacheCallback) Option {
 	return func(c *Config) {
 		if cb != nil {
 			c.hitCacheCallback = cb
+		}
+	}
+}
+
+// OnMissCacheCallback define the callback when use cache
+type OnMissCacheCallback func(c *gin.Context)
+
+var defaultMissCacheCallback = func(c *gin.Context) {}
+
+// WithOnMissCache will be called when cache miss.
+func WithOnMissCache(cb OnMissCacheCallback) Option {
+	return func(c *Config) {
+		if cb != nil {
+			c.missCacheCallback = cb
 		}
 	}
 }

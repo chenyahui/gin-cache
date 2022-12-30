@@ -2,17 +2,18 @@ package cache
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/chenyahui/gin-cache/persist"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -51,6 +52,26 @@ func TestCacheByRequestPath(t *testing.T) {
 	assert.Equal(t, w1.Body, w2.Body)
 	assert.Equal(t, w2.Body, w3.Body)
 	assert.Equal(t, w1.Code, w2.Code)
+}
+
+func TestCacheHitMissCallback(t *testing.T) {
+	var cacheHitCount, cacheMissCount int32
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+	cachePathMiddleware := CacheByRequestPath(memoryStore, 3*time.Second,
+		WithOnHitCache(func(c *gin.Context) {
+			atomic.AddInt32(&cacheHitCount, 1)
+		}),
+		WithOnMissCache(func(c *gin.Context) {
+			atomic.AddInt32(&cacheMissCount, 1)
+		}),
+	)
+
+	mockHttpRequest(cachePathMiddleware, "/cache?uid=u1", true)
+	mockHttpRequest(cachePathMiddleware, "/cache?uid=u2", true)
+	mockHttpRequest(cachePathMiddleware, "/cache?uid=u3", true)
+
+	assert.Equal(t, cacheHitCount, int32(2))
+	assert.Equal(t, cacheMissCount, int32(1))
 }
 
 func TestCacheDuration(t *testing.T) {
