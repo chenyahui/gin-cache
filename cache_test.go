@@ -90,7 +90,7 @@ func TestCacheByRequestBody(t *testing.T) {
 
 	assert.NotEmpty(t, w1.Body)
 	assert.Equal(t, w1.Body, w2.Body)
-	assert.Equal(t, body03, string(w3.Body.Bytes()))
+	assert.Equal(t, body03, w3.Body.String())
 }
 
 func TestCacheHitMissCallback(t *testing.T) {
