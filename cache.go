@@ -210,16 +210,11 @@ func CacheByRequestBody(defaultCacheStore persist.CacheStore, defaultExpire time
 	cacheStrategy := func(c *gin.Context) (bool, Strategy) {
 		requestBody, err := c.GetRawData()
 		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(requestBody))
-
 		if err != nil {
 			return false, Strategy{}
 		}
 		h := crypto.SHA256.New()
-		_, err = h.Write(requestBody)
-		if err != nil {
-			return false, Strategy{}
-		}
-		bodyHash := string(h.Sum(nil))
+		bodyHash := string(h.Sum(requestBody))
 		return true, Strategy{
 			CacheKey: bodyHash,
 		}
