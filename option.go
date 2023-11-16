@@ -23,6 +23,7 @@ type Config struct {
 	ignoreQueryOrder bool
 	prefixKey        string
 	withoutHeader    bool
+	discardHeaders   []string
 }
 
 func newConfigByOpts(opts ...Option) *Config {
@@ -157,5 +158,20 @@ func WithPrefixKey(prefix string) Option {
 func WithoutHeader() Option {
 	return func(c *Config) {
 		c.withoutHeader = true
+	}
+}
+
+func DiscardHeaders(headers []string) Option {
+	return func(c *Config) {
+		c.discardHeaders = headers
+	}
+}
+
+func CorsHeaders() []string {
+	return []string{
+		"Access-Control-Allow-Credentials",
+		"Access-Control-Expose-Headers",
+		"Access-Control-Allow-Origin",
+		"Vary",
 	}
 }

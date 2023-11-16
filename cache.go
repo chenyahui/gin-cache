@@ -113,7 +113,7 @@ func cache(
 			inFlight = true
 
 			respCache := &ResponseCache{}
-			respCache.fillWithCacheWriter(cacheWriter, cfg.withoutHeader)
+			respCache.fillWithCacheWriter(cacheWriter, cfg)
 
 			// only cache 2xx response
 			if !c.IsAborted() && cacheWriter.Status() < 300 && cacheWriter.Status() >= 200 {
@@ -214,11 +214,15 @@ type ResponseCache struct {
 	Data   []byte
 }
 
-func (c *ResponseCache) fillWithCacheWriter(cacheWriter *responseCacheWriter, withoutHeader bool) {
+func (c *ResponseCache) fillWithCacheWriter(cacheWriter *responseCacheWriter, cfg *Config) {
 	c.Status = cacheWriter.Status()
 	c.Data = cacheWriter.body.Bytes()
-	if !withoutHeader {
+	if !cfg.withoutHeader {
 		c.Header = cacheWriter.Header().Clone()
+
+		for _, headerKey := range cfg.discardHeaders {
+			c.Header.Del(headerKey)
+		}
 	}
 }
 
