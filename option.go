@@ -161,7 +161,7 @@ func WithoutHeader() Option {
 	}
 }
 
-func DiscardHeaders(headers []string) Option {
+func WithDiscardHeaders(headers []string) Option {
 	return func(c *Config) {
 		c.discardHeaders = headers
 	}
