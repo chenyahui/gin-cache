@@ -39,6 +39,23 @@ func mockHttpRequest(middleware gin.HandlerFunc, url string, withRand bool) *htt
 
 	return testWriter
 }
+func mockHttpPostRequest(middleware gin.HandlerFunc, url string, requestBody string) *httptest.ResponseRecorder {
+	testWriter := httptest.NewRecorder()
+
+	_, engine := gin.CreateTestContext(testWriter)
+	engine.Use(middleware)
+	engine.POST("/cache", func(c *gin.Context) {
+		responseData := requestBody
+
+		c.String(http.StatusOK, responseData)
+	})
+
+	testRequest := httptest.NewRequest(http.MethodPost, url, nil)
+
+	engine.ServeHTTP(testWriter, testRequest)
+
+	return testWriter
+}
 
 func TestCacheByRequestPath(t *testing.T) {
 	memoryStore := persist.NewMemoryStore(1 * time.Minute)
@@ -52,6 +69,28 @@ func TestCacheByRequestPath(t *testing.T) {
 	assert.Equal(t, w1.Body, w2.Body)
 	assert.Equal(t, w2.Body, w3.Body)
 	assert.Equal(t, w1.Code, w2.Code)
+}
+
+func TestCacheByRequestBody(t *testing.T) {
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+	cacheDuration := 3 * time.Second
+	cacheByBodyMiddleware := CacheByRequestBody(memoryStore, cacheDuration)
+
+	body01 := "body_01"
+	body02 := "body_02"
+	body03 := "body_03"
+	w1 := mockHttpPostRequest(cacheByBodyMiddleware, "/cache", body01)
+	w2 := mockHttpPostRequest(cacheByBodyMiddleware, "/cache", body02)
+	time.Sleep(cacheDuration)
+	w3 := mockHttpPostRequest(cacheByBodyMiddleware, "/cache", body03)
+
+	assert.NotNil(t, w1.Body)
+	assert.NotNil(t, w2.Body)
+	assert.NotNil(t, w3.Body)
+
+	assert.NotEmpty(t, w1.Body)
+	assert.Equal(t, w1.Body, w2.Body)
+	assert.Equal(t, body03, w3.Body.String())
 }
 
 func TestCacheHitMissCallback(t *testing.T) {
