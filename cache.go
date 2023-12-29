@@ -3,6 +3,7 @@ package cache
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"net/http"
 	"net/url"
 	"sort"
@@ -85,7 +86,7 @@ func cache(
 				return
 			}
 
-			if err != persist.ErrCacheMiss {
+			if !errors.Is(err, persist.ErrCacheMiss) {
 				cfg.logger.Errorf("get cache error: %s, cache key: %s", err, cacheKey)
 			}
 			cfg.missCacheCallback(c)
