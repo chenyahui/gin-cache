@@ -36,7 +36,7 @@ func (c *MemoryStore) Delete(key string) error {
 	return c.Cache.Remove(key)
 }
 
-// Get get key in memory store, if key doesn't exist, return ErrCacheMiss
+// Get key in memory store, if key doesn't exist, return ErrCacheMiss
 func (c *MemoryStore) Get(key string, value interface{}) error {
 	val, err := c.Cache.Get(key)
 	if errors.Is(err, ttlcache.ErrNotFound) {

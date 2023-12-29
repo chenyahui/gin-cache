@@ -224,7 +224,6 @@ func TestCacheByRequestURIIgnoreOrder(t *testing.T) {
 const prefixKey = "#prefix#"
 
 func TestPrefixKey(t *testing.T) {
-
 	memoryStore := persist.NewMemoryStore(1 * time.Minute)
 	cachePathMiddleware := CacheByRequestPath(
 		memoryStore,
@@ -277,4 +276,24 @@ func TestWithDiscardHeaders(t *testing.T) {
 		headers2 := testWriter.Header()
 		assert.Equal(t, headers2.Get(headerKey), "")
 	}
+}
+
+func TestCustomCacheStrategy(t *testing.T) {
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+	cacheMiddleware := Cache(
+		memoryStore,
+		24*time.Hour,
+		WithCacheStrategyByRequest(func(c *gin.Context) (bool, Strategy) {
+			return true, Strategy{
+				CacheKey: "custom_cache_key_" + c.Query("uid"),
+			}
+		}),
+	)
+
+	_ = mockHttpRequest(cacheMiddleware, "/cache?uid=1", false)
+
+	var val interface{}
+	err := memoryStore.Get("custom_cache_key_1", &val)
+	assert.Nil(t, err)
+	return
 }
