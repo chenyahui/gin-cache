@@ -130,17 +130,14 @@ func TestHeader(t *testing.T) {
 
 	{
 		engine.ServeHTTP(testWriter, testRequest)
-		values := testWriter.Header().Values("test_header_key")
-		assert.Equal(t, 1, len(values))
-		assert.Equal(t, "test_header_value2", values[0])
-
+		value := testWriter.Header().Values("test_header_key")
+		assert.Equal(t, "test_header_value2", value)
 	}
 
 	{
 		engine.ServeHTTP(testWriter, testRequest)
-		values := testWriter.Header().Values("test_header_key")
-		assert.Equal(t, 1, len(values))
-		assert.Equal(t, "test_header_value2", values[0])
+		value := testWriter.Header().Get("test_header_key")
+		assert.Equal(t, "test_header_value2", value)
 	}
 }
 
