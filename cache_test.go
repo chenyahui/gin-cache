@@ -130,7 +130,7 @@ func TestHeader(t *testing.T) {
 
 	{
 		engine.ServeHTTP(testWriter, testRequest)
-		value := testWriter.Header().Values("test_header_key")
+		value := testWriter.Header().Get("test_header_key")
 		assert.Equal(t, "test_header_value2", value)
 	}
 
