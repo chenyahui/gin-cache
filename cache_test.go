@@ -295,5 +295,4 @@ func TestCustomCacheStrategy(t *testing.T) {
 	var val interface{}
 	err := memoryStore.Get("custom_cache_key_1", &val)
 	assert.Nil(t, err)
-	return
 }
