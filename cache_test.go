@@ -218,6 +218,24 @@ func TestCacheByRequestURIIgnoreOrder(t *testing.T) {
 	assert.NotEqual(t, w3.Body, w1.Body)
 }
 
+func TestCacheByRequestURIOnlyUpdateCache(t *testing.T) {
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+	cacheURIMiddleware := CacheByRequestURI(memoryStore, 3*time.Second)
+
+	w1 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
+	w2 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
+	assert.Equal(t, w1.Body, w2.Body)
+
+	cacheURIMiddlewareOnlyUpdateCache := CacheByRequestURI(memoryStore, 3*time.Second, OnlyUpdateCache())
+
+	w3 := mockHttpRequest(cacheURIMiddlewareOnlyUpdateCache, "/cache?uid=u1", true)
+	w4 := mockHttpRequest(cacheURIMiddlewareOnlyUpdateCache, "/cache?uid=u1", true)
+	assert.NotEqual(t, w3.Body, w4.Body)
+
+	w5 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
+	assert.Equal(t, w5.Body, w4.Body)
+}
+
 const prefixKey = "#prefix#"
 
 func TestPrefixKey(t *testing.T) {
