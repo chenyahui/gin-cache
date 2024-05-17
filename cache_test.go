@@ -293,3 +293,28 @@ func TestCustomCacheStrategy(t *testing.T) {
 	err := memoryStore.Get("custom_cache_key_1", &val)
 	assert.Nil(t, err)
 }
+
+func TestCacheByRequestURICustomCacheStrategy(t *testing.T) {
+	const customKey = "CustomKey"
+	memoryStore := persist.NewMemoryStore(1 * time.Minute)
+	cacheURIMiddleware := CacheByRequestURI(memoryStore, 1*time.Second, WithCacheStrategyByRequest(func(c *gin.Context) (bool, Strategy) {
+		return true, Strategy{
+			CacheKey:      customKey,
+			CacheDuration: 2 * time.Second,
+		}
+	}))
+
+	w1 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
+	var val interface{}
+	err := memoryStore.Get(customKey, &val)
+	assert.Nil(t, err)
+	time.Sleep(1 * time.Second)
+
+	w2 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
+	assert.Equal(t, w1.Body, w2.Body)
+	assert.Equal(t, w1.Code, w2.Code)
+	time.Sleep(3 * time.Second)
+
+	w3 := mockHttpRequest(cacheURIMiddleware, "/cache?uid=u1", true)
+	assert.NotEqual(t, w1.Body, w3.Body)
+}

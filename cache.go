@@ -137,6 +137,10 @@ func cache(
 func CacheByRequestURI(defaultCacheStore persist.CacheStore, defaultExpire time.Duration, opts ...Option) gin.HandlerFunc {
 	cfg := newConfigByOpts(opts...)
 
+	if cfg.getCacheStrategyByRequest != nil {
+		return cache(defaultCacheStore, defaultExpire, cfg)
+	}
+
 	var cacheStrategy GetCacheStrategyByRequest
 	if cfg.ignoreQueryOrder {
 		cacheStrategy = func(c *gin.Context) (bool, Strategy) {
