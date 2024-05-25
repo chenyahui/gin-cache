@@ -1,12 +1,12 @@
 package main
 
 import (
+	"github.com/redis/go-redis/v9"
 	"time"
 
 	"github.com/chenyahui/gin-cache"
 	"github.com/chenyahui/gin-cache/persist"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 )
 
 func main() {
