@@ -1,6 +1,7 @@
 package persist
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"time"
@@ -27,17 +28,17 @@ func NewMemoryStore(defaultExpiration time.Duration) *MemoryStore {
 }
 
 // Set put key value pair to memory store, and expire after expireDuration
-func (c *MemoryStore) Set(key string, value interface{}, expireDuration time.Duration) error {
+func (c *MemoryStore) Set(ctx context.Context, key string, value interface{}, expireDuration time.Duration) error {
 	return c.Cache.SetWithTTL(key, value, expireDuration)
 }
 
 // Delete remove key in memory store, do nothing if key doesn't exist
-func (c *MemoryStore) Delete(key string) error {
+func (c *MemoryStore) Delete(ctx context.Context, key string) error {
 	return c.Cache.Remove(key)
 }
 
 // Get key in memory store, if key doesn't exist, return ErrCacheMiss
-func (c *MemoryStore) Get(key string, value interface{}) error {
+func (c *MemoryStore) Get(ctx context.Context, key string, value interface{}) error {
 	val, err := c.Cache.Get(key)
 	if errors.Is(err, ttlcache.ErrNotFound) {
 		return ErrCacheMiss
