@@ -79,7 +79,7 @@ func cache(
 		// read cache first
 		{
 			respCache := &ResponseCache{}
-			err := cacheStore.Get(cacheKey, &respCache)
+			err := cacheStore.Get(c.Request.Context(), cacheKey, &respCache)
 			if err == nil {
 				replyWithCache(c, cfg, respCache)
 				cfg.hitCacheCallback(c)
@@ -118,7 +118,7 @@ func cache(
 
 			// only cache 2xx response
 			if !c.IsAborted() && cacheWriter.Status() < 300 && cacheWriter.Status() >= 200 {
-				if err := cacheStore.Set(cacheKey, respCache, cacheDuration); err != nil {
+				if err := cacheStore.Set(c.Request.Context(), cacheKey, respCache, cacheDuration); err != nil {
 					cfg.logger.Errorf("set cache key error: %s, cache key: %s", err, cacheKey)
 				}
 			}
