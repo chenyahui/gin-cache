@@ -81,9 +81,11 @@ func cache(
 			respCache := &ResponseCache{}
 			err := cacheStore.Get(cacheKey, &respCache)
 			if err == nil {
-				replyWithCache(c, cfg, respCache)
-				cfg.hitCacheCallback(c)
-				return
+				if !cfg.onlyUpdateCache {
+					replyWithCache(c, cfg, respCache)
+					cfg.hitCacheCallback(c)
+					return
+				}
 			}
 
 			if !errors.Is(err, persist.ErrCacheMiss) {

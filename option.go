@@ -24,6 +24,7 @@ type Config struct {
 	prefixKey        string
 	withoutHeader    bool
 	discardHeaders   []string
+	onlyUpdateCache  bool
 }
 
 func newConfigByOpts(opts ...Option) *Config {
@@ -145,6 +146,12 @@ func WithSingleFlightForgetTimeout(forgetTimeout time.Duration) Option {
 func IgnoreQueryOrder() Option {
 	return func(c *Config) {
 		c.ignoreQueryOrder = true
+	}
+}
+
+func OnlyUpdateCache() Option {
+	return func(c *Config) {
+		c.onlyUpdateCache = true
 	}
 }
 
