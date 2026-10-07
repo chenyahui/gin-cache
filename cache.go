@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/chenyahui/gin-cache/persist"
@@ -191,27 +190,20 @@ func getRequestUriIgnoreQueryOrder(requestURI string) (string, error) {
 		return "", err
 	}
 
-	values := parsedUrl.Query()
+	values, err := url.ParseQuery(parsedUrl.RawQuery)
+	if err != nil {
+		return "", err
+	}
 
 	if len(values) == 0 {
 		return requestURI, nil
 	}
 
-	queryKeys := make([]string, 0, len(values))
-	for queryKey := range values {
-		queryKeys = append(queryKeys, queryKey)
-	}
-	sort.Strings(queryKeys)
-
-	queryVals := make([]string, 0, len(values))
-	for _, queryKey := range queryKeys {
-		sort.Strings(values[queryKey])
-		for _, val := range values[queryKey] {
-			queryVals = append(queryVals, queryKey+"="+val)
-		}
+	for _, queryValues := range values {
+		sort.Strings(queryValues)
 	}
 
-	return parsedUrl.Path + "?" + strings.Join(queryVals, "&"), nil
+	return parsedUrl.EscapedPath() + "?" + values.Encode(), nil
 }
 
 // CacheByRequestPath a shortcut function for caching response by url path, means will discard the query params

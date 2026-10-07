@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -197,6 +198,112 @@ func TestGetRequestUriIgnoreQueryOrder(t *testing.T) {
 	val, err = getRequestUriIgnoreQueryOrder("/test?d=4&e=5")
 	require.NoError(t, err)
 	assert.Equal(t, "/test?d=4&e=5", val)
+}
+
+func TestGetRequestUriIgnoreQueryOrderEscaping(t *testing.T) {
+	for _, requestURI := range []string{
+		"/cache?x=a%26y%3Db",
+		"/cache?a%3Db=c",
+		"/cache?x=a%2Bb",
+		"/cache?x=a+b",
+		"/cache?x=%23value",
+		"/cache?%26key=%3Dvalue",
+		"/cache?x=%25value",
+		"/cache?x=%E9%9B%AA",
+		"/cache%2Fitem?x=1",
+		"/cache%3Fitem?x=1",
+		"/cache%23item?x=1",
+	} {
+		t.Run(requestURI, func(t *testing.T) {
+			key, err := getRequestUriIgnoreQueryOrder(requestURI)
+			require.NoError(t, err)
+			original, err := url.ParseRequestURI(requestURI)
+			require.NoError(t, err)
+			normalized, err := url.ParseRequestURI(key)
+			require.NoError(t, err)
+			assert.Equal(t, original.EscapedPath(), normalized.EscapedPath())
+			assert.Equal(t, original.Query(), normalized.Query())
+		})
+	}
+}
+
+func TestIgnoreQueryOrderDistinctResponses(t *testing.T) {
+	middlewares := []struct {
+		name string
+		new  func() gin.HandlerFunc
+	}{
+		{"option", func() gin.HandlerFunc {
+			return CacheByRequestURI(persist.NewMemoryStore(time.Minute), time.Minute, IgnoreQueryOrder())
+		}},
+		{"strategy", func() gin.HandlerFunc {
+			return Cache(persist.NewMemoryStore(time.Minute), time.Minute,
+				WithCacheStrategyByRequest(CacheStrategyRequestURIIgnoreQueryOrder))
+		}},
+	}
+	pairs := []struct {
+		name   string
+		first  string
+		second string
+	}{
+		{"value separator", "/cache?x=a%26y%3Db", "/cache?x=a&y=b"},
+		{"key separator", "/cache?a%3Db=c", "/cache?a=b%3Dc"},
+		{"literal plus", "/cache?x=a%2Bb", "/cache?x=a+b"},
+		{"path separator", "/cache%2Fitem?x=1", "/cache/item?x=1"},
+		{"path query delimiter", "/cache%3Fitem?x=1", "/cache?item%3Fx=1"},
+		{"invalid field", "/cache?x=1&y=%ZZ", "/cache?x=1"},
+		{"distinct invalid fields", "/cache?x=1&y=%", "/cache?x=1&y=%ZZ"},
+	}
+	for _, middleware := range middlewares {
+		t.Run(middleware.name, func(t *testing.T) {
+			for _, pair := range pairs {
+				t.Run(pair.name, func(t *testing.T) {
+					engine := gin.New()
+					engine.Use(middleware.new())
+					calls := 0
+					engine.GET("/*path", func(c *gin.Context) {
+						calls++
+						c.String(http.StatusOK, c.Request.RequestURI)
+					})
+					for _, requestURI := range []string{pair.first, pair.second, pair.first, pair.second} {
+						writer := httptest.NewRecorder()
+						engine.ServeHTTP(writer, httptest.NewRequest(http.MethodGet, requestURI, nil))
+						assert.Equal(t, http.StatusOK, writer.Code)
+						assert.Equal(t, requestURI, writer.Body.String())
+					}
+					assert.Equal(t, 2, calls)
+				})
+			}
+		})
+	}
+}
+
+func TestGetRequestUriIgnoreQueryOrderMalformedQuery(t *testing.T) {
+	for _, requestURI := range []string{"/cache?x=1&y=%ZZ", "/cache?x=1&y=%"} {
+		t.Run(requestURI, func(t *testing.T) {
+			_, err := getRequestUriIgnoreQueryOrder(requestURI)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestIgnoreQueryOrderEquivalentResponses(t *testing.T) {
+	engine := gin.New()
+	engine.Use(CacheByRequestURI(persist.NewMemoryStore(time.Minute), time.Minute, IgnoreQueryOrder()))
+	calls := 0
+	engine.GET("/cache", func(c *gin.Context) {
+		calls++
+		c.String(http.StatusOK, c.Request.RequestURI)
+	})
+	for _, requestURI := range []string{
+		"/cache?x=b%26c&x=a%2Bb&a=%E9%9B%AA",
+		"/cache?a=%E9%9B%AA&x=a%2Bb&x=b%26c",
+	} {
+		writer := httptest.NewRecorder()
+		engine.ServeHTTP(writer, httptest.NewRequest(http.MethodGet, requestURI, nil))
+		assert.Equal(t, http.StatusOK, writer.Code)
+		assert.Equal(t, "/cache?x=b%26c&x=a%2Bb&a=%E9%9B%AA", writer.Body.String())
+	}
+	assert.Equal(t, 1, calls)
 }
 
 func TestCacheByRequestURIIgnoreOrder(t *testing.T) {
